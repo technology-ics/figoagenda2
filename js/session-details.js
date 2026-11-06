@@ -136,6 +136,7 @@ function actionRow(session, { t, saved, onToggleSave, pageUrl }) {
     class: "text-button",
     text: t("copyLink"),
     translate: "no",
+    "aria-live": "polite",
     onClick: (event) => copyLink(pageUrl, event.currentTarget, t),
   }));
   return row;

@@ -19,6 +19,7 @@ const state = {
   filters: createFilterState(),
   sessions: [],
   savedIds: loadSavedIds(),
+  savedOnly: false,
   selectedId: "",
   status: "loading",
   usingCache: false,
@@ -28,6 +29,7 @@ const state = {
 
 const t = (key, vars) => translate(state.language, key, vars);
 let lastFocus = null;
+let programmeScroll = 0;
 
 const searchInput = () => document.querySelector("#search");
 const dialog = () => document.querySelector("#session-dialog");
@@ -66,6 +68,11 @@ function bindEvents() {
   document.querySelector("#next-day").addEventListener("click", () => shiftDate(1));
   document.querySelector("#view-calendar").addEventListener("click", () => setView("calendar"));
   document.querySelector("#view-list").addEventListener("click", () => setView("list"));
+  document.querySelector("#saved-only").addEventListener("click", () => {
+    state.savedOnly = !state.savedOnly;
+    renderProgramme();
+    updateChrome();
+  });
   document.querySelector("#agenda-toggle").addEventListener("click", () => {
     state.mode = state.mode === "agenda" ? "programme" : "agenda";
     renderProgramme();
@@ -74,11 +81,16 @@ function bindEvents() {
 
   dialog().addEventListener("close", () => {
     setSessionParam("");
+    const root = document.documentElement;
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    window.scrollTo(0, programmeScroll);
+    root.style.scrollBehavior = previous;
     const target = state.selectedId
       ? document.querySelector(`button[data-session-id="${CSS.escape(state.selectedId)}"]`)
       : null;
-    if (target) target.focus();
-    else if (lastFocus instanceof HTMLElement && document.contains(lastFocus)) lastFocus.focus();
+    if (target) target.focus({ preventScroll: true });
+    else if (lastFocus instanceof HTMLElement && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
   });
   dialog().addEventListener("click", (event) => {
     if (dialog().dataset.justOpened === "true") return;
@@ -173,10 +185,7 @@ function renderProgramme() {
   if (!sessions.length) {
     document.querySelector("#legend").hidden = true;
     document.body.classList.remove("is-calendar");
-    main.append(el("div", { class: "empty-state" },
-      el("p", { text: t("noResults"), lang: state.language, translate: "no" }),
-      el("p", { text: t("noResultsHint"), lang: state.language, translate: "no" }),
-    ));
+    main.append(emptyResults());
     return;
   }
 
@@ -191,6 +200,59 @@ function renderProgramme() {
   };
   if (state.view === "calendar") renderCalendar(main, sessions, options);
   else renderList(main, sessions, options);
+}
+
+function emptyResults() {
+  const box = el("div", { class: "empty-state" });
+  const message = state.savedOnly && state.savedIds.length === 0
+    ? t("savedNone")
+    : state.savedOnly
+      ? t("noSavedMatches")
+      : t("noResults");
+  box.append(
+    el("p", { text: message, lang: state.language, translate: "no" }),
+    el("p", { text: t("noResultsHint"), lang: state.language, translate: "no" }),
+  );
+  const actions = el("div", { class: "empty-actions" });
+  actions.append(el("button", {
+    type: "button",
+    class: "secondary-button",
+    text: t("clearFilters"),
+    lang: state.language,
+    translate: "no",
+    onClick: () => resetFilters(),
+  }));
+  if (state.query.trim()) {
+    actions.append(el("button", {
+      type: "button",
+      class: "text-button",
+      text: t("clearSearch"),
+      lang: state.language,
+      translate: "no",
+      onClick: () => {
+        state.query = "";
+        searchInput().value = "";
+        renderProgramme();
+        updateChrome();
+      },
+    }));
+  }
+  if (state.savedOnly) {
+    actions.append(el("button", {
+      type: "button",
+      class: "text-button",
+      text: t("showAllSessions"),
+      lang: state.language,
+      translate: "no",
+      onClick: () => {
+        state.savedOnly = false;
+        renderProgramme();
+        updateChrome();
+      },
+    }));
+  }
+  box.append(actions);
+  return box;
 }
 
 function renderLegend(sessions = state.sessions) {
@@ -331,11 +393,14 @@ function scopeDate() {
 }
 
 function matchingSessions() {
-  return state.sessions.filter((session) => sessionMatches(session, {
-    query: state.query,
-    filters: state.filters,
-    date: state.view === "calendar" ? scopeDate() : state.date,
-  }));
+  return state.sessions.filter((session) => {
+    if (state.savedOnly && !state.savedIds.includes(session.id)) return false;
+    return sessionMatches(session, {
+      query: state.query,
+      filters: state.filters,
+      date: state.view === "calendar" ? scopeDate() : state.date,
+    });
+  });
 }
 
 function visibleSessions() {
@@ -404,6 +469,7 @@ function revealSearchHit() {
 }
 
 function openSession(id, { fromLink = false } = {}) {
+  programmeScroll = window.scrollY;
   const session = state.sessions.find((item) => item.id === id);
   if (!session) {
     state.missingSession = true;
@@ -456,7 +522,7 @@ function setSaved(id, shouldSave) {
   if (shouldSave && !state.savedIds.includes(id)) state.savedIds = [...state.savedIds, id];
   if (!shouldSave) state.savedIds = state.savedIds.filter((item) => item !== id);
   saveSavedIds(state.savedIds);
-  if (state.mode === "agenda" || state.view === "list") renderProgramme();
+  if (state.mode === "agenda" || state.view === "list" || state.savedOnly) renderProgramme();
   if (dialog().open && state.selectedId === id) {
     refreshDialog(id);
     dialog().querySelector(".dialog-close")?.focus();
@@ -486,6 +552,7 @@ function updateChrome() {
   updateCacheOffer();
   document.querySelector("#search-clear").hidden = !state.query;
   document.querySelector("#refresh").disabled = state.status === "loading";
+  document.querySelector("#saved-only").setAttribute("aria-pressed", state.savedOnly ? "true" : "false");
 }
 
 function updateStatusLine() {
@@ -665,13 +732,8 @@ function applyTranslations() {
   document.title = t("documentTitle");
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
-    if (node.id === "lang-hint" && state.language === "en-GB") {
-      node.lang = "en-GB";
-      node.setAttribute("translate", "yes");
-    } else {
-      node.lang = state.language;
-      node.setAttribute("translate", "no");
-    }
+    node.lang = state.language;
+    node.setAttribute("translate", "no");
   });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
     node.setAttribute("placeholder", t(node.dataset.i18nPlaceholder));

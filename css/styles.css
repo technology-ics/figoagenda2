@@ -1,11 +1,11 @@
 :root {
   --red: #A11915;
   --blue: #22366E;
-  --bg: #FFFFFF;
-  --surface: #F7F8FA;
+  --bg: #F7F5F2;
+  --surface: #EFEBE6;
   --ink: #263044;
-  --muted: #5C6778;
-  --line: #E5E7EB;
+  --muted: #4C5566;
+  --line: #E7E4E0;
   --white: #FFFFFF;
   --shadow: 0 8px 24px rgba(38, 48, 68, 0.08);
   --font: "Futura PT", Futura, Arial, "Helvetica Neue", sans-serif;
@@ -97,7 +97,7 @@ h3 {
 .skip-link:focus { top: 0.75rem; }
 
 .preview {
-  background: var(--surface);
+  background: transparent;
   color: var(--red);
   text-align: center;
   font-size: 0.85rem;
@@ -126,9 +126,10 @@ main,
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
-  padding: 0.7rem 0 0.65rem;
+  padding: 0.65rem 0 0.6rem;
   border-top: 3px solid var(--red);
   border-bottom: 1px solid var(--line);
+  background: transparent;
 }
 
 .brand {
@@ -161,11 +162,9 @@ main,
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem 1rem;
 }
-
-.lang-block { text-align: right; }
 
 .lang-switch {
   display: flex;
@@ -190,12 +189,12 @@ main,
   text-underline-offset: 0.2rem;
 }
 
-.lang-hint {
-  margin: 0;
-  max-width: 18rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-  line-height: 1.35;
+.discovery {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.85rem 1rem 0.75rem;
+  margin-top: 0.85rem;
 }
 
 .agenda-toggle,
@@ -268,8 +267,6 @@ main,
   place-items: center;
   padding: 0 0.3rem;
 }
-
-.discovery { padding: 0.85rem 0 0.2rem; }
 
 .search-row,
 .filter-bar,
@@ -430,8 +427,40 @@ label[for="search"] {
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
-  padding: 0.7rem 0 0.4rem;
-  background: var(--bg);
+  padding: 0.85rem 0 0.45rem;
+  background: transparent;
+}
+
+.toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.jump-label {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.saved-only {
+  min-height: 44px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+}
+
+.saved-only[aria-pressed="true"] {
+  background: var(--white);
+  border-color: var(--line);
+  color: var(--ink);
+  font-weight: 650;
 }
 
 .date-nav {
@@ -548,11 +577,21 @@ main { padding-bottom: 2.5rem; }
 }
 
 .empty-state {
-  background: var(--surface);
+  background: var(--white);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1rem 1.1rem;
-  color: var(--muted);
+  color: var(--ink);
+}
+
+.empty-state p { margin-bottom: 0.35rem; }
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  margin-top: 0.55rem;
 }
 
 .session-list { display: grid; gap: 0.45rem; }
@@ -570,7 +609,7 @@ main { padding-bottom: 2.5rem; }
   padding: 0.65rem 0.8rem;
 }
 
-.session-card:hover { background: var(--surface); }
+.session-card:hover { border-color: #D5D0CA; }
 
 .session-card.is-selected { outline: 2px solid var(--blue); }
 
@@ -645,7 +684,7 @@ main { padding-bottom: 2.5rem; }
 .match-label { font-weight: 650; }
 
 mark.search-hit {
-  background: #E8EEF5;
+  background: #EFE6DA;
   color: inherit;
   font-weight: 650;
   padding: 0 0.05em;
@@ -715,8 +754,8 @@ mark.search-hit {
     to bottom,
     transparent 0,
     transparent calc(var(--slot) - 1px),
-    #F3F4F6 calc(var(--slot) - 1px),
-    #F3F4F6 var(--slot)
+    #EFEBE6 calc(var(--slot) - 1px),
+    #EFEBE6 var(--slot)
   );
 }
 
@@ -785,18 +824,26 @@ mark.search-hit {
 .dialog-body {
   overflow: auto;
   flex: 1;
-  padding: 1rem 1.25rem 1.4rem;
+  padding: 1.05rem 1.35rem 1.5rem;
+  line-height: 1.55;
 }
 
 .when-line {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.45rem;
   font-weight: 650;
   color: var(--ink);
+  line-height: 1.45;
 }
 
-.host-line { margin: 0 0 0.55rem; }
+.host-line { margin: 0 0 0.65rem; }
 
-.detail-tags { margin-bottom: 0.9rem; }
+.detail-tags { margin-bottom: 0.35rem; }
+
+.dialog-body h3 {
+  margin: 1.15rem 0 0.4rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
 
 .leadership {
   display: grid;
@@ -896,9 +943,10 @@ mark.search-hit {
 
 .agenda-item-row {
   display: grid;
-  gap: 0.1rem;
-  padding: 0.7rem 0;
+  gap: 0.15rem;
+  padding: 0.85rem 0;
   border-top: 1px solid var(--line);
+  line-height: 1.45;
 }
 
 .agenda-time {

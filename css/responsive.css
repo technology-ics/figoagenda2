@@ -18,7 +18,7 @@
 
 @media (max-width: 899px) {
   .programme-toolbar { align-items: stretch; flex-direction: column; }
-  .view-toggle { align-self: flex-start; }
+  .toolbar-controls { align-self: flex-start; }
 }
 
 @media (max-width: 720px) {
@@ -28,9 +28,7 @@
     gap: 0.6rem;
   }
 
-  .lang-block { text-align: left; }
   .lang-switch { justify-content: flex-start; }
-  .lang-hint { max-width: none; }
 
   .session-card,
   .missing-card { grid-template-columns: 1fr; }
