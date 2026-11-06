@@ -215,7 +215,9 @@ function describeHit(hit, t) {
 export function streamTag(stream) {
   const style = streamStyle(stream);
   const item = el("li", { class: "tag tag-stream" });
-  item.style.backgroundColor = style.colour;
+  item.style.backgroundColor = style.tint || "#F7F8FA";
+  item.style.color = style.colour;
+  item.style.borderColor = style.colour;
   item.append(
     el("span", { class: "tag-code", text: style.code, translate: "no" }),
     el("span", { text: stream, lang: "en", translate: "yes" }),

@@ -3,6 +3,7 @@ import { el, fold, formatIsoDate } from "./utils.js";
 import { streamTag, fillHighlighted } from "./agenda-list.js";
 import { canExport, downloadIcs, googleCalendarUrl } from "./calendar-export.js";
 import { explainMatch } from "./search.js";
+import { hasProfileContent } from "./profiles.js";
 
 export function renderSessionDialog(dialog, session, options) {
   const { language, t, saved, onToggleSave, pageUrl, query = "" } = options;
@@ -101,7 +102,7 @@ function actionRow(session, { t, saved, onToggleSave, pageUrl }) {
   const row = el("div", { class: "dialog-actions dialog-footer" });
   row.append(el("button", {
     type: "button",
-    class: saved ? "secondary-button" : "primary-button",
+    class: "secondary-button",
     text: saved ? t("removeAgenda") : t("addAgenda"),
     translate: "no",
     onClick: () => onToggleSave(session.id),
@@ -171,9 +172,7 @@ function leaderGroup(people, singular, plural, language, query) {
   const list = el("ul", { class: "leaders" });
   for (const person of people) {
     const item = el("li", { class: "leader" });
-    const name = el("span", { class: "person-name", translate: "no" });
-    fillHighlighted(name, person.name, query);
-    item.append(name);
+    item.append(personIdentity(person, query));
     const affiliation = formatAffiliation(person);
     if (affiliation) item.append(el("span", { class: "person-aff", text: affiliation, lang: "en", translate: "yes" }));
     list.append(item);
@@ -285,15 +284,37 @@ function activityPeople(people, language, query) {
     if (label) line.append(el("span", { class: "person-role", text: `${label}:`, lang: language, translate: "no" }), document.createTextNode(" "));
     list.forEach((person, index) => {
       if (index) line.append(document.createTextNode(", "));
-      const name = el("span", { class: "person-name", translate: "no" });
-      fillHighlighted(name, person.name, query);
-      line.append(name);
+      line.append(personIdentity(person, query));
       const affiliation = formatAffiliation(person);
       if (affiliation) line.append(document.createTextNode(" "), el("span", { class: "person-aff", text: affiliation, lang: "en", translate: "yes" }));
     });
     wrap.append(line);
   }
   return wrap;
+}
+
+function personIdentity(person, query) {
+  const interactive = hasProfileContent(person);
+  const name = el(interactive ? "button" : "span", {
+    class: interactive ? "person-name person-link" : "person-name",
+    type: interactive ? "button" : undefined,
+    translate: "no",
+  });
+  fillHighlighted(name, person.name, query);
+  if (!interactive) return name;
+  name.setAttribute("aria-expanded", "false");
+  const card = el("span", { class: "profile-card", hidden: true });
+  if (person.headshotUrl) {
+    const img = el("img", { class: "profile-photo", alt: "", src: person.headshotUrl });
+    img.addEventListener("error", () => img.remove());
+    card.append(img);
+  }
+  if (person.biography) card.append(el("span", { class: "profile-bio", text: person.biography, lang: "en", translate: "yes" }));
+  name.addEventListener("click", () => {
+    card.hidden = !card.hidden;
+    name.setAttribute("aria-expanded", card.hidden ? "false" : "true");
+  });
+  return el("span", { class: "person-profile" }, name, card);
 }
 
 function formatAffiliation(person) {

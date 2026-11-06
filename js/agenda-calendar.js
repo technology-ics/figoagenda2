@@ -149,7 +149,8 @@ function sessionTile(item, lanes, dayStart, ppm, { language, selectedId, onSelec
   button.style.height = `${Math.max((session.endMinutes - session.startMinutes) * ppm - 3, 32)}px`;
   button.style.left = `calc(${(100 / lanes) * lane}% + 3px)`;
   button.style.width = `calc(${100 / lanes}% - 6px)`;
-  button.style.backgroundColor = style.colour;
+  button.style.backgroundColor = style.tint || "#F7F8FA";
+  button.style.borderLeftColor = style.colour;
   if (selected) button.setAttribute("aria-current", "true");
   button.append(el("span", {
     class: "cal-title",

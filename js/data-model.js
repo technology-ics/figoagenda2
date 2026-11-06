@@ -191,12 +191,21 @@ function readPerson(record, cell) {
     role,
     affiliation: cell(record, "affiliation"),
     country: cell(record, "affiliationCountry"),
+    speakerId: cell(record, "speakerId"),
+    biography: cell(record, "biography"),
+    headshotUrl: cell(record, "headshotUrl"),
   };
 }
 
 function addPerson(list, person) {
   const key = [person.name, person.role, person.affiliation, person.country].join("|").toLowerCase();
-  if (list.some((item) => item.key === key)) return;
+  const existing = list.find((item) => item.key === key);
+  if (existing) {
+    if (!existing.speakerId && person.speakerId) existing.speakerId = person.speakerId;
+    if (!existing.biography && person.biography) existing.biography = person.biography;
+    if (!existing.headshotUrl && person.headshotUrl) existing.headshotUrl = person.headshotUrl;
+    return;
+  }
   list.push({ ...person, key });
 }
 

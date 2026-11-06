@@ -31,23 +31,25 @@ export const CONFIG = {
     cache: "figo2027.csvCache",
   },
 
+  weekAtAGlanceUrl: "https://congress.figo.org/week-at-a-glance/",
+
   /**
-   * Scientific stream colours. Text on these backgrounds is white and meets WCAG AA.
+   * Muted stream colours for accents and small tags. Tints are calendar and tag backgrounds.
    * Codes are shown as text so stream identity is not conveyed by colour alone.
-   * Cross-stream is included because the published sheet uses it in addition to the seven streams.
+   * Cross-stream is included because the published sheet uses it as well as the seven streams.
    */
   streams: {
-    "Maternal fetal medicine": { colour: "#22366E", code: "MFM" },
-    "Clinical obstetrics": { colour: "#0B6B56", code: "OBS" },
-    Gynaecology: { colour: "#A11915", code: "GYN" },
-    "Sexual and reproductive health and rights": { colour: "#0E5F78", code: "SRH" },
-    "Reproductive medicine": { colour: "#5C3A78", code: "REP" },
-    "Women's cancer": { colour: "#8E3D12", code: "CAN" },
-    Endocrinology: { colour: "#6A4A12", code: "END" },
-    "Cross-stream": { colour: "#3D4A57", code: "CRS" },
+    "Maternal fetal medicine": { colour: "#1E3A6E", tint: "#E7EDF6", code: "MFM" },
+    "Clinical obstetrics": { colour: "#0F5F66", tint: "#E5F3F2", code: "OBS" },
+    Gynaecology: { colour: "#A11915", tint: "#F8ECEB", code: "GYN" },
+    "Sexual and reproductive health and rights": { colour: "#5B4B8A", tint: "#F0ECF6", code: "SRH" },
+    "Reproductive medicine": { colour: "#8A5A28", tint: "#F6F0E7", code: "REP" },
+    "Women's cancer": { colour: "#8E3D62", tint: "#F7EBF1", code: "CAN" },
+    Endocrinology: { colour: "#3E6240", tint: "#EAF2EB", code: "END" },
+    "Cross-stream": { colour: "#5C6778", tint: "#F1F3F6", code: "CRS" },
   },
 
-  fallbackStream: { colour: "#3D4A57", code: "—" },
+  fallbackStream: { colour: "#5C6778", tint: "#F1F3F6", code: "—" },
 
   /** Preferred room order. Rooms not listed are shown afterwards, alphabetically. */
   roomOrder: [
@@ -119,6 +121,13 @@ export const HEADER_ALIASES = {
     "hosting organization",
     "host",
   ],
+};
+
+/** Optional columns for a later speaker-profile release. Absence is not a data error. */
+export const OPTIONAL_HEADER_ALIASES = {
+  speakerId: ["speaker id", "person id", "participant id"],
+  biography: ["biography", "bio", "speaker biography"],
+  headshotUrl: ["headshot url", "headshot", "photo url", "photo"],
 };
 
 /** Language suffixes recognised on translated scientific columns, for example "Session Title (fr)". */

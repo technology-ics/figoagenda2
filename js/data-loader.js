@@ -1,4 +1,4 @@
-import { CONFIG, HEADER_ALIASES, TRANSLATION_SUFFIXES } from "./config.js";
+import { CONFIG, HEADER_ALIASES, OPTIONAL_HEADER_ALIASES, TRANSLATION_SUFFIXES } from "./config.js";
 import { normalizeHeader } from "./utils.js";
 
 /**
@@ -72,7 +72,7 @@ export function mapHeaders(headers) {
   const used = new Set();
   const map = {};
 
-  for (const [canonical, aliases] of Object.entries(HEADER_ALIASES)) {
+  for (const [canonical, aliases] of Object.entries({ ...HEADER_ALIASES, ...OPTIONAL_HEADER_ALIASES })) {
     const found = available.find((header) => aliases.includes(header.key) && !used.has(header.raw));
     if (found) {
       map[canonical] = found.raw;

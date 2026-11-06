@@ -1,5 +1,6 @@
 import { CONFIG } from "./config.js";
 import { createSessionCard } from "./agenda-list.js";
+import { renderCalendar } from "./agenda-calendar.js";
 import { localContent } from "./translations.js";
 import { el, readStorage, writeStorage } from "./utils.js";
 
@@ -36,7 +37,7 @@ export function findConflicts(sessions) {
 }
 
 export function renderPersonalAgenda(container, sessionsById, savedIds, options) {
-  const { language, t, selectedId, onSelect, onRemove, onBack } = options;
+  const { language, t, selectedId, onSelect, onRemove, onBack, view = "list", date = "" } = options;
   if (onBack) container.append(el("button", { type: "button", class: "text-button back-button", text: t("backToProgramme"), lang: language, translate: "no", onClick: onBack }));
   container.append(el("h2", { text: t("viewingAgenda"), lang: language, translate: "no" }));
   container.append(el("p", { class: "intro", text: t("agendaIntro"), lang: language, translate: "no" }));
@@ -70,18 +71,24 @@ export function renderPersonalAgenda(container, sessionsById, savedIds, options)
     return;
   }
 
-  const list = el("div", { class: "session-list" });
-  for (const session of available) {
-    const wrap = el("div", { class: "agenda-item" });
-    wrap.append(createSessionCard(session, { language, t, selectedId, saved: true, showDate: true, onSelect }));
-    const others = conflicts.get(session.id) || [];
-    if (others.length) {
-      const titles = others.map((other) => localContent(other.title, language)).join("; ");
-      wrap.append(el("p", { class: "conflict-note", lang: language, translate: "no" }, el("strong", { text: t("conflict") }), ` — ${t("conflictWith", { titles })}`));
+  const visible = view === "calendar" && date ? available.filter((session) => session.date === date) : available;
+  if (view === "calendar") {
+    if (visible.length) renderCalendar(container, visible, { language, t, selectedId, onSelect });
+    else container.append(el("p", { class: "empty-state", text: t("agendaNoneThisDay"), lang: language, translate: "no" }));
+  } else {
+    const list = el("div", { class: "session-list" });
+    for (const session of visible) {
+      const wrap = el("div", { class: "agenda-item" });
+      wrap.append(createSessionCard(session, { language, t, selectedId, saved: true, showDate: true, onSelect }));
+      const others = conflicts.get(session.id) || [];
+      if (others.length) {
+        const titles = others.map((other) => localContent(other.title, language)).join("; ");
+        wrap.append(el("p", { class: "conflict-note", lang: language, translate: "no" }, el("strong", { text: t("conflict") }), ` — ${t("conflictWith", { titles })}`));
+      }
+      list.append(wrap);
     }
-    list.append(wrap);
+    container.append(list);
   }
-  container.append(list);
 
   if (missing.length) {
     const section = el("section", { class: "missing-saved" });

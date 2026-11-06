@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-GB"> 
+<html lang="en-GB">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,10 +28,13 @@
       </div>
     </div>
     <div class="header-tools">
-      <div class="lang-switch" role="group" data-i18n-aria="languageGroup" aria-label="Language">
-        <button type="button" data-lang="en-GB" lang="en-GB" translate="no" aria-pressed="true">English</button>
-        <button type="button" data-lang="fr" lang="fr" translate="no">Français</button>
-        <button type="button" data-lang="es" lang="es" translate="no">Español</button>
+      <div class="lang-block">
+        <div class="lang-switch" role="group" data-i18n-aria="languageGroup" aria-label="Language">
+          <button type="button" data-lang="en-GB" lang="en-GB" translate="no" aria-pressed="true">English</button>
+          <button type="button" data-lang="fr" lang="fr" translate="no">Français</button>
+          <button type="button" data-lang="es" lang="es" translate="no">Español</button>
+        </div>
+        <p id="lang-hint" class="lang-hint" data-i18n="translateHint">Menus follow these buttons. For session text, use your browser’s translate control.</p>
       </div>
       <button type="button" id="agenda-toggle" class="agenda-toggle" aria-pressed="false">
         <span data-i18n="personalAgenda">Personal agenda</span>
@@ -49,34 +52,15 @@
         <button type="button" id="search-clear" class="text-button" hidden data-i18n="clearSearch">Clear search</button>
       </div>
     </form>
-    <div class="filter-toolbar">
-      <button type="button" id="mobile-filters" class="filter-launcher" aria-expanded="false" aria-controls="filter-panel">
-        <span data-i18n="filters">Filters</span>
-        <span id="mobile-filter-count" class="count-badge" hidden>0</span>
-      </button>
-      <div id="filters" class="filters"></div>
-      <button type="button" id="more-filters" class="filter-launcher" aria-expanded="false" aria-controls="more-filters-panel">
-        <span data-i18n="moreFilters">More filters</span>
-        <span id="more-filter-count" class="filter-selected"></span>
-      </button>
-    </div>
-    <div id="more-filters-panel" class="more-filters" hidden></div>
+    <div id="filters" class="filters"></div>
     <ul id="active-filters" class="active-filters" hidden></ul>
     <div class="filter-bar">
       <button type="button" id="clear-filters" class="text-button" hidden data-i18n="clearFilters">Clear all filters</button>
       <button type="button" id="refresh" class="text-button" data-i18n="refresh">Refresh programme</button>
-    </div>
-    <p id="translate-note" class="translate-note" data-i18n="translateNotice">The language buttons translate menus, buttons and dates. They do not translate session titles, descriptions or presentations. To translate the scientific programme, use your browser’s full-page translation. In Chrome or Edge, use the translate icon in the address bar, or right-click the page and choose Translate. Automatic translation can be inaccurate, especially for scientific terms. After you search, filter or open a session, translate the page again if new text stays in the original language.</p>
-    <div id="filter-panel" class="filter-panel" hidden role="dialog" aria-modal="true" aria-labelledby="filter-panel-title">
-      <div class="filter-panel-bar">
-        <h2 id="filter-panel-title" data-i18n="filters">Filters</h2>
-        <button type="button" id="filter-panel-close" class="text-button" data-i18n="close">Close</button>
-      </div>
-      <div id="filter-panel-body"></div>
-      <div class="filter-panel-actions">
-        <button type="button" id="filter-panel-clear" class="text-button" data-i18n="clearFilters">Clear all filters</button>
-        <button type="button" id="filter-panel-done" class="primary-button">Show sessions</button>
-      </div>
+      <a class="text-link" href="https://congress.figo.org/week-at-a-glance/" target="_blank" rel="noopener noreferrer">
+        <span data-i18n="weekAtAGlance">Week at a glance</span>
+        <span aria-hidden="true">↗</span>
+      </a>
     </div>
   </section>
 

@@ -133,6 +133,9 @@ export const translations = {
     presentations: "Presentations",
     otherAgenda: "Other agenda details",
     translateNotice: "The language buttons translate menus, buttons and dates. They do not translate session titles, descriptions or presentations. To translate the scientific programme, use your browser’s full-page translation. In Chrome or Edge, use the translate icon in the address bar, or right-click the page and choose Translate. Automatic translation can be inaccurate, especially for scientific terms. After you search, filter or open a session, translate the page again if new text stays in the original language.",
+    translateHint: "Menus follow these buttons. For session text, use your browser’s translate control.",
+    weekAtAGlance: "Week at a glance",
+    agendaNoneThisDay: "No saved sessions on this day.",
   },
   fr: {
     documentTitle: "Programme scientifique · FIGO Montréal 2027",
@@ -266,6 +269,9 @@ export const translations = {
     presentations: "Présentations",
     otherAgenda: "Autres éléments de l’ordre du jour",
     translateNotice: "Les boutons de langue traduisent les menus, les boutons et les dates. Ils ne traduisent pas les titres de séances, les descriptions ni les présentations. Pour traduire le programme scientifique, utilisez la traduction de toute la page dans votre navigateur. Dans Chrome ou Edge, touchez l’icône de traduction dans la barre d’adresse, ou faites un clic droit sur la page et choisissez Traduire. La traduction automatique peut être inexacte, surtout pour les termes scientifiques. Après une recherche, un filtre ou l’ouverture d’une séance, relancez la traduction si le nouveau texte reste dans la langue d’origine.",
+    translateHint: "Ces boutons traduisent les menus. Pour le texte des séances, utilisez la traduction de votre navigateur.",
+    weekAtAGlance: "La semaine en un coup d’œil",
+    agendaNoneThisDay: "Aucune séance enregistrée ce jour-là.",
   },
   es: {
     documentTitle: "Programa científico · FIGO Montréal 2027",
@@ -399,6 +405,9 @@ export const translations = {
     presentations: "Presentaciones",
     otherAgenda: "Otros detalles del orden del día",
     translateNotice: "Los botones de idioma traducen los menús, los botones y las fechas. No traducen los títulos de las sesiones, las descripciones ni las presentaciones. Para traducir el programa científico, use la traducción de toda la página en su navegador. En Chrome o Edge, use el icono de traducir en la barra de direcciones, o haga clic derecho en la página y elija Traducir. La traducción automática puede ser inexacta, sobre todo en la terminología científica. Después de buscar, filtrar o abrir una sesión, vuelva a traducir la página si el texto nuevo sigue en el idioma original.",
+    translateHint: "Estos botones traducen los menús. Para el texto de las sesiones, use la traducción de su navegador.",
+    weekAtAGlance: "La semana de un vistazo",
+    agendaNoneThisDay: "No hay sesiones guardadas este día.",
   },
 };
 
