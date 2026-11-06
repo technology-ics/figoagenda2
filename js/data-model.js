@@ -374,6 +374,10 @@ export function streamStyle(stream) {
   return CONFIG.streams[name] || { ...CONFIG.fallbackStream, code: name.slice(0, 3).toUpperCase() || "—" };
 }
 
+export function topicStyle(topic) {
+  return CONFIG.topicColours[topic] || CONFIG.fallbackTopic;
+}
+
 export function orderedStreamNames(sessions) {
   const present = new Set(sessions.map((session) => session.stream).filter(Boolean));
   const known = Object.keys(CONFIG.streams).filter((name) => present.has(name));

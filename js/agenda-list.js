@@ -1,7 +1,7 @@
 import { localContent, roleKind, sourceLanguage, translateSessionLanguage } from "./translations.js";
 import { explainMatch, highlightRanges } from "./search.js";
 import { el, formatIsoDate } from "./utils.js";
-import { streamStyle } from "./data-model.js";
+import { streamStyle, topicStyle } from "./data-model.js";
 
 export function renderList(container, sessions, options) {
   if (options.ranked) {
@@ -64,6 +64,21 @@ export function createSessionCard(session, options) {
   if (options.showDate && session.date) {
     time.append(el("p", { class: "card-day", text: formatIsoDate(session.date, language, { weekday: "short", day: "numeric", month: "short" }) }));
   }
+  if (options.onToggleSave) {
+    time.append(el("button", {
+      type: "button",
+      class: `card-save${saved ? " is-saved" : ""}`,
+      "aria-pressed": saved ? "true" : "false",
+      "aria-label": saved ? t("removeAgenda") : t("addAgenda"),
+      text: saved ? t("saved") : t("save"),
+      lang: language,
+      translate: "no",
+      onClick: (event) => {
+        event.stopPropagation();
+        options.onToggleSave(session.id);
+      },
+    }));
+  }
 
   const body = el("div", { class: "card-body" });
   const dateLabel = session.date
@@ -94,11 +109,10 @@ export function createSessionCard(session, options) {
   }
 
   const tags = el("ul", { class: "tags" });
-  if (session.stream) tags.append(streamTag(session.stream));
+  if (session.stream) tags.append(streamTag(session.stream, filterAction(options, "stream", session.stream)));
   if (session.type) tags.append(sourceTag(session.type));
-  for (const topic of session.specialTopics) tags.append(sourceTag(topic, "tag-special"));
+  for (const topic of session.specialTopics) tags.append(topicTag(topic, filterAction(options, "topic", topic)));
   if (session.language) tags.append(el("li", { class: "tag tag-language", text: translateSessionLanguage(session.language, language), lang: language, translate: "no" }));
-  if (saved) tags.append(el("li", { class: "tag tag-saved", text: t("saved"), lang: language, translate: "no" }));
   if (tags.childElementCount) body.append(tags);
   const notes = matchNotes(session, options);
   if (notes) body.append(notes);
@@ -212,17 +226,49 @@ function describeHit(hit, t) {
   return label && hit.text ? `${label}: ${hit.text}` : "";
 }
 
-export function streamTag(stream) {
+export function streamTag(stream, action) {
   const style = streamStyle(stream);
   const item = el("li", { class: "tag tag-stream" });
-  item.style.backgroundColor = style.tint || "#F7F8FA";
+  item.style.backgroundColor = style.tint || "#E6E8EC";
   item.style.color = style.colour;
   item.style.borderColor = style.colour;
-  item.append(
+  const content = [
     el("span", { class: "tag-code", text: style.code, translate: "no" }),
     el("span", { text: stream, lang: "en", translate: "yes" }),
-  );
+  ];
+  if (action) item.append(tagButton(action, content));
+  else item.append(...content);
   return item;
+}
+
+export function topicTag(topic, action) {
+  const style = topicStyle(topic);
+  const item = el("li", { class: "tag tag-special" });
+  item.style.backgroundColor = style.tint;
+  item.style.color = style.colour;
+  item.style.borderColor = style.colour;
+  const content = [el("span", { text: topic, lang: "en", translate: "yes" })];
+  if (action) item.append(tagButton(action, content));
+  else item.append(...content);
+  return item;
+}
+
+function tagButton(action, content) {
+  return el("button", {
+    type: "button",
+    class: "tag-button",
+    "aria-label": action.label,
+    onClick: (event) => {
+      event.stopPropagation();
+      action.onClick();
+    },
+  }, ...content);
+}
+
+function filterAction(options, kind, name) {
+  const handler = kind === "stream" ? options.onFilterStream : options.onFilterTopic;
+  if (!handler) return null;
+  return { label: options.t("filterBy", { name }), onClick: () => handler(name) };
 }
 
 function sourceTag(text, className = "") {

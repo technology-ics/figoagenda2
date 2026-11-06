@@ -5,7 +5,7 @@ import { explainMatch } from "./search.js";
 import { activeFilterCount, clearFilters, collectFilterOptions, createFilterState, sessionMatches } from "./filters.js";
 import { renderCalendar } from "./agenda-calendar.js";
 import { renderList } from "./agenda-list.js";
-import { findConflicts, loadSavedIds, renderPersonalAgenda, saveSavedIds } from "./personal-agenda.js";
+import { findConflicts, loadSavedIds, renderPersonalAgenda, saveSavedIds, fillPrintAgenda } from "./personal-agenda.js";
 import { renderSessionDialog, sessionPageUrl } from "./session-details.js";
 import { translate, translateSessionLanguage } from "./translations.js";
 import { el, formatIsoDate, readStorage, writeStorage } from "./utils.js";
@@ -40,6 +40,10 @@ function init() {
   document.querySelector("#preview").hidden = !CONFIG.previewNotice;
   applyTranslations();
   bindEvents();
+  window.addEventListener("afterprint", () => {
+    document.body.classList.remove("is-printing-agenda");
+    document.querySelector("#print-agenda")?.replaceChildren();
+  });
   updateChrome();
   load();
 }
@@ -168,6 +172,10 @@ function renderProgramme() {
       date: state.view === "calendar" ? scopeDate() : "",
       selectedId: state.selectedId,
       onSelect: (id) => openSession(id),
+      onToggleSave: (id) => setSaved(id, !state.savedIds.includes(id)),
+      onFilterStream: (name) => applyTagFilter("streams", name),
+      onFilterTopic: (name) => applyTagFilter("specials", name),
+      onPrint: () => printPersonalAgenda(),
       onRemove: (id) => setSaved(id, false),
       onBack: () => {
         state.mode = "programme";
@@ -197,9 +205,41 @@ function renderProgramme() {
     query: state.query,
     ranked: state.view === "list" && Boolean(state.query.trim()),
     onSelect: (id) => openSession(id),
+    onToggleSave: (id) => setSaved(id, !state.savedIds.includes(id)),
+    onFilterStream: (name) => applyTagFilter("streams", name),
+    onFilterTopic: (name) => applyTagFilter("specials", name),
   };
   if (state.view === "calendar") renderCalendar(main, sessions, options);
   else renderList(main, sessions, options);
+}
+
+function applyTagFilter(group, name) {
+  state.filters[group].add(name);
+  state.mode = "programme";
+  renderProgramme();
+  updateChrome();
+}
+
+function printPersonalAgenda() {
+  const saved = state.sessions.filter((session) => state.savedIds.includes(session.id)).sort(compareSessions);
+  fillPrintAgenda(document.querySelector("#print-agenda"), saved, { language: state.language, t });
+  document.body.classList.add("is-printing-agenda");
+  window.print();
+}
+
+function displayedSessions() {
+  if (state.mode === "agenda") {
+    const saved = state.sessions.filter((session) => state.savedIds.includes(session.id)).sort(compareSessions);
+    return state.view === "calendar" ? saved.filter((session) => session.date === scopeDate()) : saved;
+  }
+  return visibleSessions();
+}
+
+function neighbours(id) {
+  const visible = displayedSessions();
+  const list = visible.some((session) => session.id === id) ? visible : [...state.sessions].sort(compareSessions);
+  const index = list.findIndex((session) => session.id === id);
+  return { previous: list[index - 1], next: list[index + 1] };
 }
 
 function emptyResults() {
@@ -468,8 +508,12 @@ function revealSearchHit() {
   });
 }
 
-function openSession(id, { fromLink = false } = {}) {
-  programmeScroll = window.scrollY;
+function openSession(id, { fromLink = false, keepContext = false } = {}) {
+  const currentDialog = dialog();
+  if (!currentDialog.open) {
+    programmeScroll = window.scrollY;
+    lastFocus = document.activeElement;
+  }
   const session = state.sessions.find((item) => item.id === id);
   if (!session) {
     state.missingSession = true;
@@ -478,12 +522,11 @@ function openSession(id, { fromLink = false } = {}) {
   }
   state.missingSession = false;
   state.selectedId = id;
-  lastFocus = document.activeElement;
-  if (state.mode !== "agenda" && state.view === "calendar" && session.date && scopeDate() !== session.date) {
+  if (!keepContext && state.mode !== "agenda" && state.view === "calendar" && session.date && scopeDate() !== session.date) {
     state.date = session.date;
     updateDateSelection();
     renderProgramme();
-  } else if (state.mode !== "agenda" && state.date !== "all" && session.date && state.date !== session.date) {
+  } else if (!keepContext && state.mode !== "agenda" && state.date !== "all" && session.date && state.date !== session.date) {
     state.date = session.date;
     updateDateSelection();
     renderProgramme();
@@ -497,7 +540,8 @@ function openSession(id, { fromLink = false } = {}) {
   window.setTimeout(() => {
     delete current.dataset.justOpened;
   }, 250);
-  current.querySelector(".dialog-close")?.focus();
+  if (keepContext) current.querySelector("#dialog-title")?.focus();
+  else current.querySelector(".dialog-close")?.focus();
   revealSearchHit();
   setSessionParam(id);
   if (fromLink) {
@@ -508,12 +552,19 @@ function openSession(id, { fromLink = false } = {}) {
 function refreshDialog(id) {
   const session = state.sessions.find((item) => item.id === id);
   if (!session) return;
+  const { previous, next } = neighbours(id);
   renderSessionDialog(dialog(), session, {
     language: state.language,
     t,
     saved: state.savedIds.includes(id),
     pageUrl: sessionPageUrl(id),
     query: state.query,
+    hasPrevious: Boolean(previous),
+    hasNext: Boolean(next),
+    onPrevious: () => { if (previous) openSession(previous.id, { keepContext: true }); },
+    onNext: () => { if (next) openSession(next.id, { keepContext: true }); },
+    onFilterStream: (name) => applyTagFilter("streams", name),
+    onFilterTopic: (name) => applyTagFilter("specials", name),
     onToggleSave: () => setSaved(id, !state.savedIds.includes(id)),
   });
 }

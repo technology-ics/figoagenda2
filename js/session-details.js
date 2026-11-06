@@ -1,6 +1,6 @@
 import { localContent, roleKind, roleLabel, sourceLanguage, translateSessionLanguage } from "./translations.js";
 import { el, fold, formatIsoDate } from "./utils.js";
-import { streamTag, fillHighlighted } from "./agenda-list.js";
+import { streamTag, topicTag, fillHighlighted } from "./agenda-list.js";
 import { canExport, downloadIcs, googleCalendarUrl } from "./calendar-export.js";
 import { explainMatch } from "./search.js";
 import { hasProfileContent } from "./profiles.js";
@@ -20,9 +20,10 @@ export function renderSessionDialog(dialog, session, options) {
     "aria-label": t("closeSession"),
     onClick: () => dialog.close(),
   }));
-  const heading = el("h2", { id: "dialog-title", lang, translate: "yes" });
+  const heading = el("h2", { id: "dialog-title", lang, translate: "yes", tabindex: "-1" });
   fillHighlighted(heading, title, query);
   header.append(heading);
+  if (options.onPrevious || options.onNext) header.append(sessionNav(t, options));
   dialog.append(header);
 
   const body = el("div", { class: "dialog-body" });
@@ -34,7 +35,7 @@ export function renderSessionDialog(dialog, session, options) {
     host.append(hostName);
     body.append(host);
   }
-  const tags = detailTags(session, language, t);
+  const tags = detailTags(session, language, t, options);
   if (tags.childElementCount) body.append(tags);
   body.append(leadershipBlock(session, language, t, query));
 
@@ -64,6 +65,32 @@ export function sessionPageUrl(sessionId) {
   return url.toString();
 }
 
+function sessionNav(t, { onPrevious, onNext, hasPrevious, hasNext }) {
+  const nav = el("div", { class: "session-nav" });
+  nav.append(el("button", {
+    type: "button",
+    class: "text-button",
+    text: t("previousSession"),
+    translate: "no",
+    disabled: !hasPrevious,
+    onClick: onPrevious,
+  }));
+  nav.append(el("button", {
+    type: "button",
+    class: "text-button",
+    text: t("nextSession"),
+    translate: "no",
+    disabled: !hasNext,
+    onClick: onNext,
+  }));
+  return nav;
+}
+
+function filterAction(t, handler, name) {
+  if (!handler) return null;
+  return { label: t("filterBy", { name }), onClick: () => handler(name) };
+}
+
 function whenLine(session, language, t) {
   const line = el("p", { class: "when-line" });
   const parts = [];
@@ -86,10 +113,10 @@ function whenLine(session, language, t) {
   return line;
 }
 
-function detailTags(session, language, t) {
+function detailTags(session, language, t, options) {
   const tags = el("ul", { class: "tags detail-tags" });
-  if (session.stream) tags.append(streamTag(session.stream));
-  for (const topic of session.specialTopics) tags.append(el("li", { class: "tag tag-special", text: topic, lang: "en", translate: "yes" }));
+  if (session.stream) tags.append(streamTag(session.stream, filterAction(t, options.onFilterStream, session.stream)));
+  for (const topic of session.specialTopics) tags.append(topicTag(topic, filterAction(t, options.onFilterTopic, topic)));
   if (session.type) tags.append(el("li", { class: "tag", text: session.type, lang: "en", translate: "yes" }));
   if (session.format) tags.append(el("li", { class: "tag", text: session.format, lang: "en", translate: "yes" }));
   if (session.subtopic) tags.append(el("li", { class: "tag tag-subtopic", text: session.subtopic, lang: "en", translate: "yes" }));

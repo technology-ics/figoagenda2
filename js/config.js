@@ -39,17 +39,31 @@ export const CONFIG = {
    * Cross-stream is included because the published sheet uses it as well as the seven streams.
    */
   streams: {
-    "Maternal fetal medicine": { colour: "#1E3A6E", tint: "#E7EDF6", code: "MFM" },
-    "Clinical obstetrics": { colour: "#0F5F66", tint: "#E5F3F2", code: "OBS" },
-    Gynaecology: { colour: "#A11915", tint: "#F8ECEB", code: "GYN" },
-    "Sexual and reproductive health and rights": { colour: "#5B4B8A", tint: "#F0ECF6", code: "SRH" },
-    "Reproductive medicine": { colour: "#8A5A28", tint: "#F6F0E7", code: "REP" },
-    "Women's cancer": { colour: "#8E3D62", tint: "#F7EBF1", code: "CAN" },
-    Endocrinology: { colour: "#3E6240", tint: "#EAF2EB", code: "END" },
-    "Cross-stream": { colour: "#5C6778", tint: "#F1F3F6", code: "CRS" },
+    "Maternal fetal medicine": { colour: "#16356F", tint: "#DCE6F5", code: "MFM" },
+    "Clinical obstetrics": { colour: "#0C5C64", tint: "#D7EFEC", code: "OBS" },
+    Gynaecology: { colour: "#A11915", tint: "#F6E4E2", code: "GYN" },
+    "Sexual and reproductive health and rights": { colour: "#534484", tint: "#E6E0F4", code: "SRH" },
+    "Reproductive medicine": { colour: "#7A4E22", tint: "#F3E6D4", code: "REP" },
+    "Women's cancer": { colour: "#8A345C", tint: "#F6E3EC", code: "CAN" },
+    Endocrinology: { colour: "#345638", tint: "#DEEADF", code: "END" },
+    "Cross-stream": { colour: "#4E5968", tint: "#E6E8EC", code: "CRS" },
   },
 
-  fallbackStream: { colour: "#5C6778", tint: "#F1F3F6", code: "—" },
+  fallbackStream: { colour: "#4E5968", tint: "#E6E8EC", code: "—" },
+
+  /**
+   * Special topics found in the published sheet. Soft fills with dark text.
+   * These are separate from scientific streams. Unknown future topics use fallbackTopic.
+   */
+  topicColours: {
+    Obesity: { colour: "#6E4C08", tint: "#F6E6C0" },
+    Anaemia: { colour: "#7A3A32", tint: "#F6D8D1" },
+    "FemTech: digital health and AI": { colour: "#1A4F6E", tint: "#D7E7F3" },
+    Pain: { colour: "#3E4654", tint: "#E4E1DA" },
+    "Advocacy and health systems strengthening": { colour: "#2C4A32", tint: "#D9E6D2" },
+  },
+
+  fallbackTopic: { colour: "#3E4654", tint: "#E7E2DA" },
 
   /** Preferred room order. Rooms not listed are shown afterwards, alphabetically. */
   roomOrder: [

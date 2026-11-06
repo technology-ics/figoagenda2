@@ -2,7 +2,7 @@ import { CONFIG } from "./config.js";
 import { createSessionCard } from "./agenda-list.js";
 import { renderCalendar } from "./agenda-calendar.js";
 import { localContent } from "./translations.js";
-import { el, readStorage, writeStorage } from "./utils.js";
+import { el, formatIsoDate, readStorage, writeStorage } from "./utils.js";
 
 export function loadSavedIds() {
   try {
@@ -37,7 +37,7 @@ export function findConflicts(sessions) {
 }
 
 export function renderPersonalAgenda(container, sessionsById, savedIds, options) {
-  const { language, t, selectedId, onSelect, onRemove, onBack, view = "list", date = "" } = options;
+  const { language, t, selectedId, onSelect, onRemove, onBack, onPrint, onToggleSave, onFilterStream, onFilterTopic, view = "list", date = "" } = options;
   if (onBack) container.append(el("button", { type: "button", class: "text-button back-button", text: t("backToProgramme"), lang: language, translate: "no", onClick: onBack }));
   container.append(el("h2", { text: t("viewingAgenda"), lang: language, translate: "no" }));
   container.append(el("p", { class: "intro", text: t("agendaIntro"), lang: language, translate: "no" }));
@@ -63,6 +63,17 @@ export function renderPersonalAgenda(container, sessionsById, savedIds, options)
     }));
   }
 
+  if (onPrint && available.length) {
+    container.append(el("button", {
+      type: "button",
+      class: "text-button print-agenda-button",
+      text: t("printAgenda"),
+      lang: language,
+      translate: "no",
+      onClick: onPrint,
+    }));
+  }
+
   if (!available.length && !missing.length) {
     container.append(el("div", { class: "empty-state" },
       el("p", { text: t("agendaEmpty"), lang: language, translate: "no" }),
@@ -79,7 +90,17 @@ export function renderPersonalAgenda(container, sessionsById, savedIds, options)
     const list = el("div", { class: "session-list" });
     for (const session of visible) {
       const wrap = el("div", { class: "agenda-item" });
-      wrap.append(createSessionCard(session, { language, t, selectedId, saved: true, showDate: true, onSelect }));
+      wrap.append(createSessionCard(session, {
+      language,
+      t,
+      selectedId,
+      saved: true,
+      showDate: true,
+      onSelect,
+      onToggleSave,
+      onFilterStream,
+      onFilterTopic,
+    }));
       const others = conflicts.get(session.id) || [];
       if (others.length) {
         const titles = others.map((other) => localContent(other.title, language)).join("; ");
@@ -103,5 +124,34 @@ export function renderPersonalAgenda(container, sessionsById, savedIds, options)
       ));
     }
     container.append(section);
+  }
+}
+
+export function fillPrintAgenda(container, sessions, { language, t }) {
+  container.replaceChildren();
+  container.append(
+    el("p", { class: "print-kicker", text: t("congressName"), lang: language, translate: "no" }),
+    el("h1", { text: t("viewingAgenda"), lang: language, translate: "no" }),
+    el("p", { text: `${t("congressDates")} · ${t("location")}`, lang: language, translate: "no" }),
+    el("p", { text: t("footerTime"), lang: language, translate: "no" }),
+  );
+  let lastDate = "";
+  for (const session of sessions) {
+    if (session.date !== lastDate) {
+      lastDate = session.date;
+      const heading = session.date
+        ? formatIsoDate(session.date, language, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+        : t("timeUnavailable");
+      container.append(el("h2", { text: heading, lang: language, translate: "no" }));
+    }
+    const title = localContent(session.title, language) || session.id;
+    const when = session.start && session.end ? `${session.start}–${session.end}` : t("timeUnavailable");
+    const topics = [session.stream, ...session.specialTopics, session.type].filter(Boolean).join(" · ");
+    const row = el("article", { class: "print-session" });
+    row.append(el("p", { class: "print-time", text: when }));
+    row.append(el("h3", { text: title, lang: "en", translate: "yes" }));
+    if (session.room) row.append(el("p", { text: session.room, lang: "en", translate: "yes" }));
+    if (topics) row.append(el("p", { class: "print-meta", text: topics, lang: "en", translate: "yes" }));
+    container.append(row);
   }
 }
