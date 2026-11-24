@@ -229,12 +229,11 @@ function describeHit(hit, t) {
 export function streamTag(stream, action) {
   const style = streamStyle(stream);
   const item = el("li", { class: "tag tag-stream" });
-  item.style.backgroundColor = style.tint || "#E6E8EC";
-  item.style.color = style.colour;
+  item.style.backgroundColor = style.colour;
+  item.style.color = style.text || "#FFFFFF";
   item.style.borderColor = style.colour;
   const content = [
-    el("span", { class: "tag-code", text: style.code, translate: "no" }),
-    el("span", { text: stream, lang: "en", translate: "yes" }),
+    el("span", { class: "tag-name", text: stream, lang: "en", translate: "yes" }),
   ];
   if (action) item.append(tagButton(action, content));
   else item.append(...content);

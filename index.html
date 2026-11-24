@@ -33,10 +33,6 @@
         <button type="button" data-lang="fr" lang="fr" translate="no">Français</button>
         <button type="button" data-lang="es" lang="es" translate="no">Español</button>
       </div>
-      <button type="button" id="agenda-toggle" class="agenda-toggle" aria-pressed="false">
-        <span data-i18n="personalAgenda">Personal agenda</span>
-        <span id="agenda-count" class="count-badge" hidden>0</span>
-      </button>
     </div>
   </header>
 
@@ -45,7 +41,7 @@
     <form id="search-form" role="search">
       <label for="search" data-i18n="searchLabel">Search the programme</label>
       <div class="search-row">
-        <input id="search" name="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Session, speaker, topic or room" autocomplete="off" translate="no">
+        <input id="search" name="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search sessions, speakers or topics" autocomplete="off" translate="no">
         <button type="button" id="search-clear" class="text-button" hidden data-i18n="clearSearch">Clear search</button>
       </div>
     </form>
@@ -61,15 +57,19 @@
     </div>
   </section>
 
+  <nav class="section-nav" data-i18n-aria="sectionGroup" aria-label="Programme sections">
+    <div class="section-toggle">
+      <button type="button" id="section-programme" aria-pressed="true" data-i18n="programme">Programme</button>
+      <button type="button" id="section-eposters" aria-pressed="false" data-i18n="eposters">ePosters</button>
+      <button type="button" id="section-agenda" aria-pressed="false" data-i18n="myAgenda">My agenda</button>
+    </div>
+  </nav>
+
   <div id="programme-toolbar" class="programme-toolbar">
     <div class="date-nav">
-      <span id="jump-label" class="jump-label" data-i18n="jumpToDate">Jump to date</span>
-      <button type="button" id="prev-day" class="icon-button" data-i18n-aria="previousDay" aria-label="Previous day">‹</button>
-      <div id="dates" class="dates" role="group" aria-labelledby="jump-label"></div>
-      <button type="button" id="next-day" class="icon-button" data-i18n-aria="nextDay" aria-label="Next day">›</button>
+      <div id="dates" class="dates" role="group" data-i18n-aria="dateGroup" aria-label="Programme dates"></div>
     </div>
     <div class="toolbar-controls">
-      <button type="button" id="saved-only" class="saved-only" aria-pressed="false" data-i18n="savedOnly">Saved sessions only</button>
       <div class="view-toggle" role="group" data-i18n-aria="viewGroup" aria-label="Programme view">
         <button type="button" id="view-list" aria-pressed="true" data-i18n="listView">List view</button>
         <button type="button" id="view-calendar" aria-pressed="false" data-i18n="calendarView">Calendar view</button>
@@ -78,6 +78,7 @@
   </div>
 
   <p id="status" class="status" role="status" data-i18n="loading">Loading programme…</p>
+  <p id="save-notice" class="save-notice" role="status" hidden></p>
   <div id="cache-offer" class="cache-offer" hidden></div>
   <p id="scroll-hint" class="scroll-hint" data-i18n="scrollHint">Scroll sideways to see every room. Times stay visible while you move across the timetable.</p>
 

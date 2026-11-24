@@ -4,7 +4,7 @@ import { el, formatIsoDate } from "./utils.js";
 import { streamStyle } from "./data-model.js";
 
 export function renderCalendar(container, sessions, options) {
-  const { language, t, selectedId, onSelect } = options;
+  const { language, t, selectedId, onSelect, conflictFor, conflictLabel } = options;
   const dated = new Map();
   const unscheduled = [];
 
@@ -22,7 +22,7 @@ export function renderCalendar(container, sessions, options) {
     const heading = formatIsoDate(date, language, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
     const section = el("section", { class: "day-block", "aria-label": t("calendarRegion", { date: heading }) });
     section.append(el("h2", { text: heading, lang: language, translate: "no" }));
-    section.append(buildDay(dated.get(date), heading, { language, t, selectedId, onSelect }));
+    section.append(buildDay(dated.get(date), heading, { language, t, selectedId, onSelect, conflictFor, conflictLabel }));
     container.append(section);
   }
 
@@ -46,7 +46,7 @@ export function renderCalendar(container, sessions, options) {
   }
 }
 
-function buildDay(sessions, heading, { language, t, selectedId, onSelect }) {
+function buildDay(sessions, heading, { language, t, selectedId, onSelect, conflictFor, conflictLabel }) {
   const rooms = roomColumns(sessions);
   const start = Math.floor(Math.min(...sessions.map((session) => session.startMinutes)) / 60) * 60;
   const end = Math.ceil(Math.max(...sessions.map((session) => session.endMinutes)) / 60) * 60;
@@ -91,7 +91,7 @@ function buildDay(sessions, heading, { language, t, selectedId, onSelect }) {
     track.style.gridRow = "2";
     const layout = assignLanes(room.sessions);
     for (const item of layout.items) {
-      track.append(sessionTile(item, layout.lanes, start, ppm, { language, selectedId, onSelect, heading }));
+      track.append(sessionTile(item, layout.lanes, start, ppm, { language, selectedId, onSelect, heading, conflictFor, conflictLabel }));
     }
     grid.append(track);
   });
@@ -133,24 +133,27 @@ function assignLanes(sessions) {
   return { items: placed, lanes: Math.max(1, laneEnds.length) };
 }
 
-function sessionTile(item, lanes, dayStart, ppm, { language, selectedId, onSelect, heading }) {
+function sessionTile(item, lanes, dayStart, ppm, { language, selectedId, onSelect, heading, conflictFor, conflictLabel }) {
   const { session, lane } = item;
   const style = streamStyle(session.stream);
   const title = localContent(session.title, language) || session.id;
   const selected = session.id === selectedId;
+  const overlap = conflictFor?.(session) || "";
   const button = el("button", {
     type: "button",
-    class: `cal-session${selected ? " is-selected" : ""}`,
+    class: `cal-session${selected ? " is-selected" : ""}${overlap ? " is-conflict" : ""}`,
     "data-session-id": session.id,
-    "aria-label": `${title}. ${session.stream}. ${session.room}. ${session.start}–${session.end}. ${heading}`,
+    "aria-label": overlap
+      ? `${title}. ${overlap}. ${session.stream}. ${session.room}. ${session.start}–${session.end}. ${heading}`
+      : `${title}. ${session.stream}. ${session.room}. ${session.start}–${session.end}. ${heading}`,
     onClick: () => onSelect(session.id),
   });
   button.style.top = `${(session.startMinutes - dayStart) * ppm}px`;
   button.style.height = `${Math.max((session.endMinutes - session.startMinutes) * ppm - 3, 32)}px`;
   button.style.left = `calc(${(100 / lanes) * lane}% + 3px)`;
   button.style.width = `calc(${100 / lanes}% - 6px)`;
-  button.style.backgroundColor = style.tint || "#F7F8FA";
-  button.style.borderLeftColor = style.colour;
+  button.style.backgroundColor = style.colour;
+  button.style.color = style.text || "#FFFFFF";
   if (selected) button.setAttribute("aria-current", "true");
   button.append(el("span", {
     class: "cal-title",
@@ -158,6 +161,9 @@ function sessionTile(item, lanes, dayStart, ppm, { language, selectedId, onSelec
     lang: sourceLanguage(session.language),
     translate: "yes",
   }));
+  if (overlap) {
+    button.append(el("span", { class: "cal-conflict", text: conflictLabel || overlap, lang: language, translate: "no" }));
+  }
   return button;
 }
 

@@ -9,6 +9,7 @@ export function renderSessionDialog(dialog, session, options) {
   const { language, t, saved, onToggleSave, pageUrl, query = "" } = options;
   const title = localContent(session.title, language) || session.id;
   const lang = sourceLanguage(session.language);
+  dialog.dataset.kind = "session";
   dialog.replaceChildren();
 
   const header = el("div", { class: "dialog-header" });

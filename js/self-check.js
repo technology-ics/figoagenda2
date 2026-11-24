@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
 import { CONFIG } from "./config.js";
 import { fetchProgrammeCsv, mapHeaders, parseCsv } from "./data-loader.js";
-import { buildProgramme, compareSessions } from "./data-model.js";
+import { buildProgramme, compareSessions, isIllustrativeEposterDisplay } from "./data-model.js";
 import { sessionMatches, createFilterState } from "./filters.js";
 import { explainMatch, highlightRanges } from "./search.js";
 import { buildIcs, zonedWallTimeToUtc } from "./calendar-export.js";
 import { roleKind } from "./translations.js";
 import { fold, parseDate } from "./utils.js";
+
+function contrastWithWhite(hex) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const channel = (part) => {
+    const scaled = part / 255;
+    return scaled <= 0.04045 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = (0.2126 * channel((value >> 16) & 255))
+    + (0.7152 * channel((value >> 8) & 255))
+    + (0.0722 * channel(value & 255));
+  return 1.05 / (luminance + 0.05);
+}
 
 const csv = [
   "Session ID,Session Title,Session type,Stream,Subtopic,Special topics,Session language,Session description,Date,Session Start,Session End,Room,Presentation ID,Presentation Title,Presentation order,Segment ID,Segment Type,Segment Title,Agenda Start,Personal Title,First Name,Last Name,Role,Author affiliation name,Host Organisation",
@@ -21,6 +33,22 @@ const headers = mapHeaders(parsed.headers);
 const programme = buildProgramme(parsed.records, headers);
 
 assert.equal(programme.sessions.length, 1, "rows group into sessions");
+assert.equal(programme.eposters.length, 0);
+assert.equal(CONFIG.streams["Maternal fetal medicine"].colour, "#355B80");
+assert.equal(CONFIG.streams.Endocrinology.colour, "#626B36");
+assert.notEqual(CONFIG.streams.Endocrinology.colour, CONFIG.streams["Maternal fetal medicine"].colour);
+assert.equal(CONFIG.streams["Clinical obstetrics"].colour, "#A43E3A");
+assert.equal(CONFIG.streams.Gynaecology.colour, "#6C5487");
+assert.equal(CONFIG.streams["Sexual and reproductive health and rights"].colour, "#267568");
+assert.equal(CONFIG.streams["Reproductive medicine"].colour, "#A5672C");
+assert.equal(CONFIG.streams["Women's cancer"].colour, "#933E66");
+assert.equal(CONFIG.streams["Cross-stream"].colour, "#4E5968");
+assert.equal(CONFIG.topicColours.Pain.colour, "#9A3412");
+for (const style of Object.values(CONFIG.streams)) {
+  assert.equal(style.text, "#FFFFFF");
+  assert.ok(contrastWithWhite(style.colour) >= 4.5, style.colour);
+}
+assert.ok(contrastWithWhite(CONFIG.topicColours.Pain.colour) >= 4.5);
 assert.equal(programme.hasHostOrganisation, true);
 const first = programme.sessions.find((session) => session.id === "FIGO-1");
 assert.equal(first.hostOrganisation, "");
@@ -102,7 +130,8 @@ assert.equal(live.hasHostOrganisation, false);
 assert.ok(liveHeaders.missing.includes("hostOrganisation"));
 assert.equal(live.unknownHeaders.length, 0);
 assert.equal(ids.size, live.sessions.length);
-assert.equal(live.sessions.length, 151);
+assert.equal(live.sessions.length, 146);
+assert.equal(live.withheld.length, 5);
 assert.equal(live.issues.filter((issue) => issue.code === "contradictory-session").length, 0);
 assert.equal(live.sessions.filter((session) => session.hostOrganisation).length, 0);
 assert.ok(live.sessions.every((session) => session.timeZone === "America/Montreal"));
@@ -134,9 +163,35 @@ assert.equal(chairSession.people.filter((person) => person.role === "Chair").len
 assert.equal(chairSession.agenda[0].title.source, "Welcome");
 assert.equal(chairSession.agenda[1].people[0].role, "Speaker");
 
+const eposterCsv = [
+  "Session ID,Session Title,Session type,Stream,Date,Session Start,Session End,Room,Presentation ID,Presentation Title,Presentation type,Presentation Number,Presentation Start,Presentation End,First Name,Last Name,Role,Author affiliation name",
+  "H1,ePoster showcase,ePoster display,Cross-stream,01 Nov 2027,09:00,17:00,ePoster display area,P1,Feasibility study,ePoster (display only),P0001,,,Ann,Lee,Speaker,Hospital",
+  "S2,Stream posters,Breakout session,Gynaecology,01 Nov 2027,10:00,11:00,Parallel room A,P2,A real poster title,ePoster,P0002,10:15,10:20,Mina,Khan,Speaker,Clinic",
+  "S2,Stream posters,Breakout session,Gynaecology,01 Nov 2027,10:00,11:00,Parallel room A,P3,An oral abstract,Oral abstract,P0003,10:20,10:30,Jo,Kim,Speaker,Ward",
+  "S2,Stream posters,Breakout session,Gynaecology,01 Nov 2027,10:00,11:00,Parallel room A,P4,,ePoster,P0004,,,,,",
+].join("\n");
+const eposterProgramme = buildProgramme(parseCsv(eposterCsv).records, mapHeaders(parseCsv(eposterCsv).headers));
+assert.equal(eposterProgramme.sessions.length, 1, "illustrative ePoster display sessions are withheld");
+assert.equal(eposterProgramme.withheld.length, 1);
+assert.equal(eposterProgramme.withheld[0].id, "H1");
+assert.equal(eposterProgramme.sessions[0].id, "S2");
+assert.equal(isIllustrativeEposterDisplay({ type: "Poster tour" }), false);
+assert.equal(isIllustrativeEposterDisplay({ type: "e-poster display" }), true);
+assert.ok(live.sessions.every((session) => !isIllustrativeEposterDisplay(session)));
+assert.ok(live.withheld.every(isIllustrativeEposterDisplay));
+assert.equal(eposterProgramme.eposters.length, 1, "only a titled ePoster on a scientific stream is listed");
+assert.equal(eposterProgramme.eposters[0].id, "P2");
+assert.equal(eposterProgramme.eposters[0].stream, "Gynaecology");
+assert.equal(eposterProgramme.eposters[0].schedule.start, "10:15");
+assert.equal(eposterProgramme.eposters[0].presentingAuthors[0].name, "Mina Khan");
+assert.equal(eposterProgramme.eposters[0].affiliations[0], "Clinic");
+assert.ok(eposterProgramme.eposters.every((poster) => poster.stream !== "Cross-stream" && poster.title.source));
+assert.ok(live.eposters.every((poster) => poster.title.source && CONFIG.streams[poster.stream] && poster.stream !== "Cross-stream"));
+
 console.log(JSON.stringify({
   rows: live.rowCount,
   sessions: live.sessions.length,
+  withheld: live.withheld.map((session) => ({ id: session.id, type: session.type, title: session.title.source, date: session.date })),
   presentations: live.sessions.reduce((total, session) => total + session.agenda.filter((item) => item.kind === "presentation").length, 0),
   missingFields: live.missingFields,
   unknownHeaders: live.unknownHeaders,
@@ -146,4 +201,5 @@ console.log(JSON.stringify({
   }, {}),
   streams: [...new Set(live.sessions.map((session) => session.stream))],
   dates: [...new Set(live.sessions.map((session) => session.date))],
+  eposters: live.eposters.length,
 }, null, 2));

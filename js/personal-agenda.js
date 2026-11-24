@@ -18,22 +18,62 @@ export function saveSavedIds(ids) {
   writeStorage(CONFIG.storageKeys.agenda, JSON.stringify(ids));
 }
 
-export function findConflicts(sessions) {
-  const conflicts = new Map();
+export function conflictPairs(sessions) {
+  const pairs = [];
   for (let i = 0; i < sessions.length; i += 1) {
     for (let j = i + 1; j < sessions.length; j += 1) {
       const a = sessions[i];
       const b = sessions[j];
       if (!a.date || a.date !== b.date || a.startMinutes == null || b.startMinutes == null) continue;
-      if (a.startMinutes < b.endMinutes && b.startMinutes < a.endMinutes) {
-        if (!conflicts.has(a.id)) conflicts.set(a.id, []);
-        if (!conflicts.has(b.id)) conflicts.set(b.id, []);
-        conflicts.get(a.id).push(b);
-        conflicts.get(b.id).push(a);
-      }
+      if (a.startMinutes < b.endMinutes && b.startMinutes < a.endMinutes) pairs.push([a, b]);
     }
   }
+  return pairs;
+}
+
+export function findConflicts(sessions) {
+  const conflicts = new Map();
+  for (const [a, b] of conflictPairs(sessions)) {
+    if (!conflicts.has(a.id)) conflicts.set(a.id, []);
+    if (!conflicts.has(b.id)) conflicts.set(b.id, []);
+    conflicts.get(a.id).push(b);
+    conflicts.get(b.id).push(a);
+  }
   return conflicts;
+}
+
+function sessionWhen(session, language, t) {
+  return {
+    title: localContent(session.title, language) || session.id,
+    date: session.date
+      ? formatIsoDate(session.date, language, { weekday: "short", day: "numeric", month: "short" })
+      : t("timeUnavailable"),
+    time: session.start && session.end ? `${session.start}–${session.end}` : t("timeUnavailable"),
+  };
+}
+
+function conflictSummary(pairs, { language, t }) {
+  const box = el("div", { class: "conflict-summary", role: "status" });
+  box.append(el("p", { text: t("conflictIntro"), lang: language, translate: "no" }));
+  const list = el("ul");
+  for (const [a, b] of pairs) {
+    const first = sessionWhen(a, language, t);
+    const second = sessionWhen(b, language, t);
+    list.append(el("li", {
+      text: t("conflictPair", {
+        titleA: first.title,
+        dateA: first.date,
+        timeA: first.time,
+        titleB: second.title,
+        dateB: second.date,
+        timeB: second.time,
+      }),
+      lang: language,
+      translate: "no",
+    }));
+  }
+  box.append(list);
+  return box;
 }
 
 export function renderPersonalAgenda(container, sessionsById, savedIds, options) {
@@ -51,17 +91,11 @@ export function renderPersonalAgenda(container, sessionsById, savedIds, options)
   }
   available.sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.startMinutes ?? 0) - (b.startMinutes ?? 0));
 
-  const conflicts = findConflicts(available);
-  if (conflicts.size) {
-    const pairCount = [...conflicts.values()].reduce((total, list) => total + list.length, 0) / 2;
-    container.append(el("p", {
-      class: "conflict-summary",
-      role: "status",
-      text: pairCount === 1 ? t("conflictSummaryOne") : t("conflictSummaryMany", { count: pairCount }),
-      lang: language,
-      translate: "no",
-    }));
-  }
+  const day = date && date !== "all" ? date : "";
+  const visible = day ? available.filter((session) => session.date === day) : available;
+  const conflicts = findConflicts(visible);
+  const pairs = conflictPairs(visible);
+  if (pairs.length) container.append(conflictSummary(pairs, { language, t }));
 
   if (onPrint && available.length) {
     container.append(el("button", {
@@ -82,33 +116,45 @@ export function renderPersonalAgenda(container, sessionsById, savedIds, options)
     return;
   }
 
-  const visible = view === "calendar" && date ? available.filter((session) => session.date === date) : available;
+  const overlapText = (session) => {
+    const others = conflicts.get(session.id) || [];
+    return others.map((other) => t("conflictSession", sessionWhen(other, language, t))).join("; ");
+  };
   if (view === "calendar") {
-    if (visible.length) renderCalendar(container, visible, { language, t, selectedId, onSelect });
-    else container.append(el("p", { class: "empty-state", text: t("agendaNoneThisDay"), lang: language, translate: "no" }));
-  } else {
+    if (visible.length) {
+      renderCalendar(container, visible, {
+        language,
+        t,
+        selectedId,
+        onSelect,
+        conflictLabel: t("conflict"),
+        conflictFor: overlapText,
+      });
+    } else container.append(el("p", { class: "empty-state", text: t("agendaNoneThisDay"), lang: language, translate: "no" }));
+  } else if (visible.length) {
     const list = el("div", { class: "session-list" });
     for (const session of visible) {
       const wrap = el("div", { class: "agenda-item" });
       wrap.append(createSessionCard(session, {
-      language,
-      t,
-      selectedId,
-      saved: true,
-      showDate: true,
-      onSelect,
-      onToggleSave,
-      onFilterStream,
-      onFilterTopic,
-    }));
-      const others = conflicts.get(session.id) || [];
-      if (others.length) {
-        const titles = others.map((other) => localContent(other.title, language)).join("; ");
-        wrap.append(el("p", { class: "conflict-note", lang: language, translate: "no" }, el("strong", { text: t("conflict") }), ` — ${t("conflictWith", { titles })}`));
+        language,
+        t,
+        selectedId,
+        saved: true,
+        showDate: true,
+        onSelect,
+        onToggleSave,
+        onFilterStream,
+        onFilterTopic,
+      }));
+      const overlap = overlapText(session);
+      if (overlap) {
+        wrap.append(el("p", { class: "conflict-note", lang: language, translate: "no" }, el("strong", { text: t("conflict") }), ` — ${overlap}`));
       }
       list.append(wrap);
     }
     container.append(list);
+  } else {
+    container.append(el("p", { class: "empty-state", text: t("agendaNoneThisDay"), lang: language, translate: "no" }));
   }
 
   if (missing.length) {

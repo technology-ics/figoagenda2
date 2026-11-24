@@ -1,4 +1,5 @@
 import { CONFIG } from "./config.js";
+import { collectSessionEposters, sortEposters } from "./eposter.js";
 import { fold, normalizeApostrophe, parseDate, parseTime, unique } from "./utils.js";
 
 /**
@@ -80,11 +81,25 @@ export function buildProgramme(records, headerInfo) {
     }
   });
 
-  const list = [...sessions.values()].map((session) => finaliseSession(session));
+  const eposters = [];
+  const finalised = [...sessions.values()].map((session) => {
+    eposters.push(...collectSessionEposters(session));
+    return finaliseSession(session);
+  });
+  /**
+   * Timed "ePoster display" rows are illustrative showcase halls in the test sheet.
+   * FIGO has not confirmed them as poster tours, so they stay out of the visible
+   * programme, search, calendar and exports. The sheet itself is not changed.
+   * Other session types, including a future confirmed poster tour, are kept.
+   */
+  const withheld = finalised.filter(isIllustrativeEposterDisplay);
+  const list = finalised.filter((session) => !isIllustrativeEposterDisplay(session));
   list.sort(compareSessions);
 
   return {
     sessions: list,
+    withheld,
+    eposters: sortEposters(eposters),
     issues,
     missingFields: headerInfo.missing,
     unknownHeaders: headerInfo.unknown,
@@ -152,6 +167,10 @@ function createPresentation(record, id, cell, variants) {
     startMinutes: start?.total ?? null,
     segmentId: "",
     people: [],
+    abstract: variants(record, "presentationAbstract"),
+    specialTopics: splitSpecialTopics(cell(record, "presentationSpecialTopics")),
+    imageUrl: cell(record, "posterImageUrl"),
+    pdfUrl: cell(record, "posterPdfUrl"),
     fingerprint: presentationFingerprint(record, cell, variants),
   };
 }
@@ -354,6 +373,12 @@ function compareTimed(a, b) {
   return (a.order ?? a.number ?? 999) - (b.order ?? b.number ?? 999);
 }
 
+/** Only the unconfirmed timed ePoster showcase/display session type. Not poster tours or other sessions. */
+export function isIllustrativeEposterDisplay(session) {
+  const type = fold(session?.type).replace(/-/g, " ").replace(/\s+/g, " ");
+  return type === "eposter display" || type === "e poster display";
+}
+
 export function compareSessions(a, b) {
   if (a.date !== b.date) return (a.date || "9999").localeCompare(b.date || "9999");
   const aTime = a.startMinutes ?? 24 * 60;
@@ -371,7 +396,8 @@ function roomRank(room) {
 
 export function streamStyle(stream) {
   const name = normalizeApostrophe(stream);
-  return CONFIG.streams[name] || { ...CONFIG.fallbackStream, code: name.slice(0, 3).toUpperCase() || "—" };
+  const style = CONFIG.streams[name] || { ...CONFIG.fallbackStream, code: name.slice(0, 3).toUpperCase() || "—" };
+  return { text: "#FFFFFF", ...style };
 }
 
 export function topicStyle(topic) {

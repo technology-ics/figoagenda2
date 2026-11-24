@@ -34,32 +34,50 @@ export const CONFIG = {
   weekAtAGlanceUrl: "https://congress.figo.org/week-at-a-glance/",
 
   /**
-   * Muted stream colours for accents and small tags. Tints are calendar and tag backgrounds.
-   * Codes are shown as text so stream identity is not conveyed by colour alone.
-   * Cross-stream is included because the published sheet uses it as well as the seven streams.
+   * One stream colour mapping for calendar tiles, list tags and session details.
+   * `colour` is the solid background. `text` is the foreground on that background.
+   * `code` is kept for internal identification and is not shown in the interface.
+   *
+   * Every solid stream background uses white text. Measured contrast:
+   * maternal fetal medicine 7.10, clinical obstetrics 6.31, gynaecology 6.45,
+   * sexual and reproductive health and rights 5.49, women's cancer 6.73,
+   * endocrinology 5.71.
+   *
+   * Reproductive medicine was #A66A2C. White text on that ochre is 4.45:1, under
+   * WCAG 2.2 AA for normal text (4.5:1). It is darkened to #A5672C, one step in
+   * red and three in green, which keeps the ochre and reaches 4.59:1 with white.
+   *
+   * Cross-stream, and any name that is not one of the seven streams, uses the
+   * neutral fallback. The sheet's own stream value is used. Plenaries and ePoster
+   * halls are not reclassified.
    */
   streams: {
-    "Maternal fetal medicine": { colour: "#16356F", tint: "#DCE6F5", code: "MFM" },
-    "Clinical obstetrics": { colour: "#0C5C64", tint: "#D7EFEC", code: "OBS" },
-    Gynaecology: { colour: "#A11915", tint: "#F6E4E2", code: "GYN" },
-    "Sexual and reproductive health and rights": { colour: "#534484", tint: "#E6E0F4", code: "SRH" },
-    "Reproductive medicine": { colour: "#7A4E22", tint: "#F3E6D4", code: "REP" },
-    "Women's cancer": { colour: "#8A345C", tint: "#F6E3EC", code: "CAN" },
-    Endocrinology: { colour: "#345638", tint: "#DEEADF", code: "END" },
-    "Cross-stream": { colour: "#4E5968", tint: "#E6E8EC", code: "CRS" },
+    "Maternal fetal medicine": { colour: "#355B80", text: "#FFFFFF", tint: "#E4EAF2", code: "MFM" },
+    "Clinical obstetrics": { colour: "#A43E3A", text: "#FFFFFF", tint: "#F6E8E7", code: "OBS" },
+    Gynaecology: { colour: "#6C5487", text: "#FFFFFF", tint: "#EDE8F2", code: "GYN" },
+    "Sexual and reproductive health and rights": { colour: "#267568", text: "#FFFFFF", tint: "#E3F1EE", code: "SRH" },
+    "Reproductive medicine": { colour: "#A5672C", text: "#FFFFFF", tint: "#F8F1E6", code: "REP" },
+    "Women's cancer": { colour: "#933E66", text: "#FFFFFF", tint: "#F6E8EF", code: "CAN" },
+    Endocrinology: { colour: "#626B36", text: "#FFFFFF", tint: "#EEEFE4", code: "END" },
+    "Cross-stream": { colour: "#4E5968", text: "#FFFFFF", tint: "#E8EAED", code: "CRS" },
   },
 
-  fallbackStream: { colour: "#4E5968", tint: "#E6E8EC", code: "—" },
+  fallbackStream: { colour: "#4E5968", text: "#FFFFFF", tint: "#E8EAED", code: "—" },
 
   /**
-   * Special topics found in the published sheet. Soft fills with dark text.
+   * Special topics found in the published sheet. Dark text on a soft fill.
    * These are separate from scientific streams. Unknown future topics use fallbackTopic.
+   *
+   * Pain was #3E4654, close to the neutral Cross-stream colour. #B45328 was tested
+   * and sits too near reproductive medicine (about 27 RGB units; the closest
+   * existing pair in this palette is about 43). Pain uses a deeper burnt copper,
+   * #9A3412, which stays in that family and clears the ochre, the deep red and anaemia.
    */
   topicColours: {
     Obesity: { colour: "#6E4C08", tint: "#F6E6C0" },
     Anaemia: { colour: "#7A3A32", tint: "#F6D8D1" },
     "FemTech: digital health and AI": { colour: "#1A4F6E", tint: "#D7E7F3" },
-    Pain: { colour: "#3E4654", tint: "#E4E1DA" },
+    Pain: { colour: "#9A3412", tint: "#F8E6DC" },
     "Advocacy and health systems strengthening": { colour: "#2C4A32", tint: "#D9E6D2" },
   },
 
@@ -137,11 +155,15 @@ export const HEADER_ALIASES = {
   ],
 };
 
-/** Optional columns for a later speaker-profile release. Absence is not a data error. */
+/** Optional columns for a later speaker-profile or ePoster release. Absence is not a data error. */
 export const OPTIONAL_HEADER_ALIASES = {
   speakerId: ["speaker id", "person id", "participant id"],
   biography: ["biography", "bio", "speaker biography"],
   headshotUrl: ["headshot url", "headshot", "photo url", "photo"],
+  posterImageUrl: ["poster image url", "eposter image url", "poster image"],
+  posterPdfUrl: ["poster pdf url", "eposter pdf url", "poster pdf"],
+  presentationAbstract: ["presentation abstract", "eposter abstract", "abstract"],
+  presentationSpecialTopics: ["presentation special topics", "eposter special topics"],
 };
 
 /** Language suffixes recognised on translated scientific columns, for example "Session Title (fr)". */

@@ -5,6 +5,8 @@ import { explainMatch } from "./search.js";
 import { activeFilterCount, clearFilters, collectFilterOptions, createFilterState, sessionMatches } from "./filters.js";
 import { renderCalendar } from "./agenda-calendar.js";
 import { renderList } from "./agenda-list.js";
+import { eposterMatches } from "./eposter.js";
+import { renderEposterDialog, renderEposterSection } from "./eposter-view.js";
 import { findConflicts, loadSavedIds, renderPersonalAgenda, saveSavedIds, fillPrintAgenda } from "./personal-agenda.js";
 import { renderSessionDialog, sessionPageUrl } from "./session-details.js";
 import { translate, translateSessionLanguage } from "./translations.js";
@@ -14,12 +16,14 @@ const state = {
   language: initialLanguage(),
   view: initialView(),
   mode: "programme",
+  eposters: [],
+  eposterStream: "all",
+  selectedEposterId: "",
   query: "",
   date: "all",
   filters: createFilterState(),
   sessions: [],
   savedIds: loadSavedIds(),
-  savedOnly: false,
   selectedId: "",
   status: "loading",
   usingCache: false,
@@ -68,31 +72,25 @@ function bindEvents() {
   });
   document.querySelector("#refresh").addEventListener("click", () => load());
   document.querySelector("#clear-filters").addEventListener("click", () => resetFilters());
-  document.querySelector("#prev-day").addEventListener("click", () => shiftDate(-1));
-  document.querySelector("#next-day").addEventListener("click", () => shiftDate(1));
   document.querySelector("#view-calendar").addEventListener("click", () => setView("calendar"));
   document.querySelector("#view-list").addEventListener("click", () => setView("list"));
-  document.querySelector("#saved-only").addEventListener("click", () => {
-    state.savedOnly = !state.savedOnly;
-    renderProgramme();
-    updateChrome();
-  });
-  document.querySelector("#agenda-toggle").addEventListener("click", () => {
-    state.mode = state.mode === "agenda" ? "programme" : "agenda";
-    renderProgramme();
-    updateChrome();
-  });
+  document.querySelector("#section-programme").addEventListener("click", () => setMode("programme"));
+  document.querySelector("#section-eposters").addEventListener("click", () => setMode("eposters"));
+  document.querySelector("#section-agenda").addEventListener("click", () => setMode("agenda"));
 
   dialog().addEventListener("close", () => {
-    setSessionParam("");
+    const kind = dialog().dataset.kind;
+    if (kind !== "eposter") setSessionParam("");
     const root = document.documentElement;
     const previous = root.style.scrollBehavior;
     root.style.scrollBehavior = "auto";
     window.scrollTo(0, programmeScroll);
     root.style.scrollBehavior = previous;
-    const target = state.selectedId
-      ? document.querySelector(`button[data-session-id="${CSS.escape(state.selectedId)}"]`)
-      : null;
+    const target = kind === "eposter" && state.selectedEposterId
+      ? document.querySelector(`button[data-eposter-id="${CSS.escape(state.selectedEposterId)}"]`)
+      : state.selectedId
+        ? document.querySelector(`button[data-session-id="${CSS.escape(state.selectedId)}"]`)
+        : null;
     if (target) target.focus({ preventScroll: true });
     else if (lastFocus instanceof HTMLElement && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
   });
@@ -138,6 +136,10 @@ function applyCsv(csv, { fromCache, savedAt }) {
   const headerInfo = mapHeaders(parsed.headers);
   const programme = buildProgramme(parsed.records, headerInfo);
   state.sessions = programme.sessions;
+  state.eposters = programme.eposters || [];
+  if (state.eposterStream !== "all" && !state.eposters.some((poster) => poster.stream === state.eposterStream)) {
+    state.eposterStream = "all";
+  }
   state.usingCache = Boolean(fromCache);
   state.cacheSavedAt = savedAt || "";
   const dates = programmeDates();
@@ -152,7 +154,8 @@ function applyCsv(csv, { fromCache, savedAt }) {
 function renderProgramme() {
   const main = document.querySelector("#programme");
   main.replaceChildren();
-  const showCalendar = state.view === "calendar" && state.sessions.length > 0;
+  document.body.classList.toggle("is-eposters", state.mode === "eposters");
+  const showCalendar = state.mode === "programme" && state.view === "calendar" && state.sessions.length > 0;
   document.body.classList.toggle("is-calendar", showCalendar);
 
   if (!state.sessions.length) {
@@ -162,14 +165,33 @@ function renderProgramme() {
     return;
   }
 
+  if (state.mode === "eposters") {
+    document.querySelector("#legend").hidden = true;
+    renderEposterSection(main, visibleEposters(), state.eposters, {
+      language: state.language,
+      t,
+      query: state.query,
+      stream: state.eposterStream,
+      selectedId: state.selectedEposterId,
+      onSelect: (id) => openEposter(id),
+      onStream: (name) => {
+        state.eposterStream = name;
+        renderProgramme();
+        updateChrome();
+      },
+    });
+    return;
+  }
+
   if (state.mode === "agenda") {
     const saved = state.sessions.filter((session) => state.savedIds.includes(session.id));
-    document.body.classList.toggle("is-calendar", state.view === "calendar" && saved.length > 0);
+    const shown = state.date === "all" ? saved : saved.filter((session) => session.date === state.date);
+    document.body.classList.toggle("is-calendar", state.view === "calendar" && shown.length > 0);
     renderPersonalAgenda(main, new Map(state.sessions.map((session) => [session.id, session])), state.savedIds, {
       language: state.language,
       t,
       view: state.view,
-      date: state.view === "calendar" ? scopeDate() : "",
+      date: state.date,
       selectedId: state.selectedId,
       onSelect: (id) => openSession(id),
       onToggleSave: (id) => setSaved(id, !state.savedIds.includes(id)),
@@ -183,13 +205,13 @@ function renderProgramme() {
         updateChrome();
       },
     });
-    if (state.view === "calendar") renderLegend(saved);
+    if (state.view === "calendar") renderLegend(shown);
     else document.querySelector("#legend").hidden = true;
     return;
   }
 
   const sessions = visibleSessions();
-  renderLegend();
+  renderLegend(sessions);
   if (!sessions.length) {
     document.querySelector("#legend").hidden = true;
     document.body.classList.remove("is-calendar");
@@ -230,7 +252,7 @@ function printPersonalAgenda() {
 function displayedSessions() {
   if (state.mode === "agenda") {
     const saved = state.sessions.filter((session) => state.savedIds.includes(session.id)).sort(compareSessions);
-    return state.view === "calendar" ? saved.filter((session) => session.date === scopeDate()) : saved;
+    return state.date === "all" ? saved : saved.filter((session) => session.date === state.date);
   }
   return visibleSessions();
 }
@@ -244,13 +266,8 @@ function neighbours(id) {
 
 function emptyResults() {
   const box = el("div", { class: "empty-state" });
-  const message = state.savedOnly && state.savedIds.length === 0
-    ? t("savedNone")
-    : state.savedOnly
-      ? t("noSavedMatches")
-      : t("noResults");
   box.append(
-    el("p", { text: message, lang: state.language, translate: "no" }),
+    el("p", { text: t("noResults"), lang: state.language, translate: "no" }),
     el("p", { text: t("noResultsHint"), lang: state.language, translate: "no" }),
   );
   const actions = el("div", { class: "empty-actions" });
@@ -277,20 +294,6 @@ function emptyResults() {
       },
     }));
   }
-  if (state.savedOnly) {
-    actions.append(el("button", {
-      type: "button",
-      class: "text-button",
-      text: t("showAllSessions"),
-      lang: state.language,
-      translate: "no",
-      onClick: () => {
-        state.savedOnly = false;
-        renderProgramme();
-        updateChrome();
-      },
-    }));
-  }
   box.append(actions);
   return box;
 }
@@ -304,11 +307,13 @@ function renderLegend(sessions = state.sessions) {
   section.hidden = !show || names.length === 0;
   for (const name of names) {
     const style = streamStyle(name);
-    const swatch = el("span", { class: "swatch", text: style.code, translate: "no" });
-    swatch.style.backgroundColor = style.tint || "#F7F8FA";
-    swatch.style.color = style.colour;
-    swatch.style.borderColor = style.colour;
-    list.append(el("li", {}, swatch, el("span", { text: name, lang: "en", translate: "yes" })));
+    const swatch = el("span", { class: "swatch", "aria-hidden": "true" });
+    swatch.style.backgroundColor = style.colour;
+    const item = el("li", {}, swatch, el("span", { text: name, lang: "en", translate: "yes" }));
+    if (name === "Cross-stream") {
+      item.append(el("span", { class: "legend-note", text: t("crossStreamNote"), lang: state.language, translate: "no" }));
+    }
+    list.append(item);
   }
 }
 
@@ -346,8 +351,8 @@ function renderFilterOptions() {
   const rooms = [...new Set(state.sessions.map((session) => session.room).filter(Boolean))].sort((a, b) => roomRank(a) - roomRank(b) || a.localeCompare(b, state.language));
   const groups = [
     ["streams", "filterStream", orderedStreamNames(state.sessions)],
-    ["types", "filterType", options.types],
     ["specials", "filterSpecial", options.specials],
+    ["types", "filterType", options.types],
     ["rooms", "filterRoom", rooms],
     ["languages", "filterLanguage", options.languages],
   ];
@@ -360,11 +365,6 @@ function renderFilterOptions() {
       if (again) again.open = true;
     }
   }
-  container.append(dateFilter());
-  if (openGroups.has("date")) {
-    const again = container.querySelector('[data-group="date"]');
-    if (again) again.open = true;
-  }
 }
 
 function checkboxFilter(name, labelKey, values) {
@@ -375,29 +375,6 @@ function checkboxFilter(name, labelKey, values) {
     el("span", { class: "filter-selected", "data-filter-count": name }),
   );
   group.append(summary, filterChoices(name, values, `desk-${name}`));
-  return group;
-}
-
-function dateFilter() {
-  const group = el("details", { class: "filter-group", "data-group": "date" });
-  const summary = el("summary");
-  summary.append(
-    el("span", { class: "filter-label", "data-i18n": "date", text: t("date") }),
-    el("span", { class: "filter-selected", "data-filter-count": "date" }),
-  );
-  const list = el("div", { class: "filter-options" });
-  const choices = [["all", t("allDates")], ...programmeDates().map((date) => [date, formatIsoDate(date, state.language, { weekday: "short", day: "numeric", month: "short" })])];
-  choices.forEach(([value, label], index) => {
-    const id = `filter-date-${index}`;
-    const input = el("input", { type: "radio", name: "programme-date", id, value });
-    const selected = state.view === "calendar" ? scopeDate() : state.date;
-    input.checked = selected === value;
-    input.addEventListener("change", () => {
-      if (input.checked) selectDate(value);
-    });
-    list.append(el("label", { for: id }, input, el("span", { text: label, lang: state.language, translate: "no" })));
-  });
-  group.append(summary, list);
   return group;
 }
 
@@ -427,20 +404,12 @@ function filterChoices(name, values, idPrefix, className = "filter-options") {
   return list;
 }
 
-function scopeDate() {
-  if (state.view === "calendar" && state.date === "all") return programmeDates()[0] || "";
-  return state.date;
-}
-
 function matchingSessions() {
-  return state.sessions.filter((session) => {
-    if (state.savedOnly && !state.savedIds.includes(session.id)) return false;
-    return sessionMatches(session, {
-      query: state.query,
-      filters: state.filters,
-      date: state.view === "calendar" ? scopeDate() : state.date,
-    });
-  });
+  return state.sessions.filter((session) => sessionMatches(session, {
+    query: state.query,
+    filters: state.filters,
+    date: state.date,
+  }));
 }
 
 function visibleSessions() {
@@ -460,18 +429,9 @@ function programmeDates() {
 
 function selectDate(date) {
   state.date = date;
-  state.mode = "programme";
   updateDateSelection();
   renderProgramme();
   updateChrome();
-}
-
-function shiftDate(step) {
-  const dates = state.view === "calendar" ? programmeDates() : ["all", ...programmeDates()];
-  const current = state.view === "calendar" ? scopeDate() : state.date;
-  const index = dates.indexOf(current);
-  const next = dates[index + step];
-  if (next) selectDate(next);
 }
 
 function setView(view) {
@@ -490,7 +450,9 @@ function setLanguage(language) {
   renderFilterOptions();
   renderProgramme();
   const current = dialog();
-  if (current.open && state.selectedId) {
+  if (current.open && current.dataset.kind === "eposter" && state.selectedEposterId) {
+    openEposter(state.selectedEposterId);
+  } else if (current.open && state.selectedId) {
     refreshDialog(state.selectedId);
     revealSearchHit();
   }
@@ -522,7 +484,7 @@ function openSession(id, { fromLink = false, keepContext = false } = {}) {
   }
   state.missingSession = false;
   state.selectedId = id;
-  if (!keepContext && state.mode !== "agenda" && state.view === "calendar" && session.date && scopeDate() !== session.date) {
+  if (!keepContext && state.mode !== "agenda" && state.view === "calendar" && session.date && state.date !== "all" && state.date !== session.date) {
     state.date = session.date;
     updateDateSelection();
     renderProgramme();
@@ -570,15 +532,30 @@ function refreshDialog(id) {
 }
 
 function setSaved(id, shouldSave) {
-  if (shouldSave && !state.savedIds.includes(id)) state.savedIds = [...state.savedIds, id];
-  if (!shouldSave) state.savedIds = state.savedIds.filter((item) => item !== id);
+  const already = state.savedIds.includes(id);
+  if (shouldSave && !already) state.savedIds = [...state.savedIds, id];
+  else if (!shouldSave && already) state.savedIds = state.savedIds.filter((item) => item !== id);
+  else return;
   saveSavedIds(state.savedIds);
-  if (state.mode === "agenda" || state.view === "list" || state.savedOnly) renderProgramme();
+  if (state.mode === "agenda" || state.view === "list") renderProgramme();
   if (dialog().open && state.selectedId === id) {
     refreshDialog(id);
     dialog().querySelector(".dialog-close")?.focus();
   }
   updateChrome();
+  announceSave(shouldSave);
+}
+
+function announceSave(saved) {
+  const note = document.querySelector("#save-notice");
+  if (!note) return;
+  note.hidden = false;
+  note.textContent = saved ? t("savedConfirmation") : t("removedConfirmation");
+  window.clearTimeout(announceSave.timer);
+  announceSave.timer = window.setTimeout(() => {
+    note.hidden = true;
+    note.textContent = "";
+  }, 5000);
 }
 
 function markSelected() {
@@ -590,20 +567,26 @@ function markSelected() {
       else node.removeAttribute("aria-current");
     }
   });
+  document.querySelectorAll("[data-eposter-id]").forEach((node) => {
+    const selected = node.dataset.eposterId === state.selectedEposterId;
+    node.classList.toggle("is-selected", selected);
+    if (selected) node.setAttribute("aria-current", "true");
+    else node.removeAttribute("aria-current");
+  });
 }
 
 function updateChrome() {
   applyTranslations();
   updateDateSelection();
   updateViewButtons();
-  updateAgendaButton();
+  updateSectionButtons();
+  updateSearchContext();
   updateFilterCounts();
   renderActiveFilters();
   updateStatusLine();
   updateCacheOffer();
   document.querySelector("#search-clear").hidden = !state.query;
   document.querySelector("#refresh").disabled = state.status === "loading";
-  document.querySelector("#saved-only").setAttribute("aria-pressed", state.savedOnly ? "true" : "false");
 }
 
 function updateStatusLine() {
@@ -620,8 +603,17 @@ function updateStatusLine() {
     status.textContent = t("loadError");
     return;
   }
-  if (state.missingSession) {
+  if (state.missingSession && state.mode === "programme") {
     status.textContent = t("missingSession");
+    return;
+  }
+  if (state.mode === "eposters") {
+    if (!state.eposters.length) {
+      status.textContent = t("eposterPresentations");
+      return;
+    }
+    const posterCount = visibleEposters().length;
+    status.textContent = posterCount === 1 ? t("eposterCountOne") : t("eposterCountMany", { count: posterCount });
     return;
   }
   if (state.mode === "agenda") {
@@ -629,8 +621,8 @@ function updateStatusLine() {
     const conflicts = findConflicts(savedSessions);
     const pairCount = [...conflicts.values()].reduce((total, list) => total + list.length, 0) / 2;
     const label = state.savedIds.length === 1
-      ? t("personalAgendaLabelOne")
-      : t("personalAgendaLabel", { count: state.savedIds.length });
+      ? t("savedCountOne")
+      : t("savedCountMany", { count: state.savedIds.length });
     const conflictText = pairCount === 1 ? t("conflictSummaryOne") : t("conflictSummaryMany", { count: pairCount });
     status.textContent = pairCount ? `${label}. ${conflictText}` : label;
     return;
@@ -674,19 +666,21 @@ function updateCacheOffer() {
 }
 
 function updateDateSelection() {
-  const calendar = state.view === "calendar";
-  const current = calendar ? scopeDate() : state.date;
+  const current = state.date;
+  let selected = null;
   document.querySelectorAll("#dates button").forEach((button) => {
-    button.setAttribute("aria-pressed", button.dataset.date === current ? "true" : "false");
-    if (button.dataset.date === "all") button.hidden = calendar;
+    const pressed = button.dataset.date === current;
+    button.hidden = false;
+    button.setAttribute("aria-pressed", pressed ? "true" : "false");
+    if (pressed) selected = button;
   });
-  const dates = calendar ? programmeDates() : ["all", ...programmeDates()];
-  const index = dates.indexOf(current);
-  document.querySelector("#prev-day").disabled = index <= 0;
-  document.querySelector("#next-day").disabled = index === -1 || index >= dates.length - 1;
-  document.querySelectorAll('#filters input[name="programme-date"]').forEach((input) => {
-    input.checked = input.value === (calendar ? current : state.date);
-  });
+  const scroller = document.querySelector("#dates");
+  if (!selected || !scroller) return;
+  const left = selected.offsetLeft - scroller.offsetLeft;
+  const right = left + selected.offsetWidth;
+  if (left < scroller.scrollLeft || right > scroller.scrollLeft + scroller.clientWidth) {
+    scroller.scrollLeft = Math.max(0, left - 8);
+  }
 }
 
 function updateViewButtons() {
@@ -694,16 +688,83 @@ function updateViewButtons() {
   document.querySelector("#view-list").setAttribute("aria-pressed", state.view === "list" ? "true" : "false");
 }
 
-function updateAgendaButton() {
-  const button = document.querySelector("#agenda-toggle");
-  const badge = document.querySelector("#agenda-count");
-  badge.hidden = state.savedIds.length === 0;
-  badge.textContent = String(state.savedIds.length);
-  button.setAttribute("aria-pressed", state.mode === "agenda" ? "true" : "false");
-  const label = state.savedIds.length === 1
-    ? t("personalAgendaLabelOne")
-    : t("personalAgendaLabel", { count: state.savedIds.length });
-  button.setAttribute("aria-label", label);
+function updateSectionButtons() {
+  document.querySelector("#section-programme").setAttribute("aria-pressed", state.mode === "programme" ? "true" : "false");
+  document.querySelector("#section-eposters").setAttribute("aria-pressed", state.mode === "eposters" ? "true" : "false");
+  const agenda = document.querySelector("#section-agenda");
+  agenda.setAttribute("aria-pressed", state.mode === "agenda" ? "true" : "false");
+  const count = state.savedIds.length;
+  agenda.textContent = count ? t("myAgendaCount", { count }) : t("myAgenda");
+  document.body.classList.toggle("is-eposters", state.mode === "eposters");
+}
+
+function updateSearchContext() {
+  if (state.mode !== "eposters") return;
+  const label = document.querySelector("label[for='search']");
+  if (label) label.textContent = t("eposterSearchLabel");
+  searchInput().setAttribute("placeholder", t("eposterSearchPlaceholder"));
+}
+
+function setMode(mode) {
+  if (state.mode === mode) return;
+  const dialogWasOpen = dialog().open;
+  state.mode = mode;
+  if (dialogWasOpen) dialog().close();
+  renderProgramme();
+  updateChrome();
+  if (dialogWasOpen) {
+    const sectionId = mode === "agenda" ? "#section-agenda" : mode === "eposters" ? "#section-eposters" : "#section-programme";
+    document.querySelector(sectionId)?.focus();
+  }
+}
+
+function visibleEposters() {
+  return state.eposters.filter((poster) => {
+    if (state.eposterStream !== "all" && poster.stream !== state.eposterStream) return false;
+    return eposterMatches(poster, state.query);
+  });
+}
+
+function eposterNeighbours(id) {
+  const visible = visibleEposters();
+  const list = visible.some((poster) => poster.id === id) ? visible : state.eposters;
+  const index = list.findIndex((poster) => poster.id === id);
+  return { previous: list[index - 1], next: list[index + 1] };
+}
+
+function openEposter(id) {
+  const currentDialog = dialog();
+  if (!currentDialog.open) {
+    programmeScroll = window.scrollY;
+    lastFocus = document.activeElement;
+  }
+  const poster = state.eposters.find((item) => item.id === id);
+  if (!poster) return;
+  state.selectedEposterId = id;
+  markSelected();
+  const { previous, next } = eposterNeighbours(id);
+  renderEposterDialog(currentDialog, poster, {
+    language: state.language,
+    t,
+    query: state.query,
+    hasPrevious: Boolean(previous),
+    hasNext: Boolean(next),
+    onPrevious: () => { if (previous) openEposter(previous.id); },
+    onNext: () => { if (next) openEposter(next.id); },
+    onFilterStream: (name) => {
+      state.mode = "eposters";
+      state.eposterStream = name;
+      if (currentDialog.open) currentDialog.close();
+      renderProgramme();
+      updateChrome();
+    },
+  });
+  if (!currentDialog.open) currentDialog.showModal();
+  currentDialog.dataset.justOpened = "true";
+  window.setTimeout(() => {
+    delete currentDialog.dataset.justOpened;
+  }, 250);
+  currentDialog.querySelector(".dialog-close")?.focus();
 }
 
 function updateFilterCounts() {
@@ -716,16 +777,8 @@ function updateFilterCounts() {
     });
   }
   syncFilterInputs();
-  const dateCount = document.querySelector('[data-filter-count="date"]');
-  const dateActive = state.date !== "all";
-  if (dateCount) {
-    dateCount.textContent = dateActive
-      ? ` · ${formatIsoDate(state.date, state.language, { weekday: "short", day: "numeric", month: "short" })}`
-      : "";
-  }
-  document.querySelector('[data-group="date"]')?.classList.toggle("is-active", dateActive);
   const total = activeFilterCount(state.filters);
-  document.querySelector("#clear-filters").hidden = total === 0 && !dateActive;
+  document.querySelector("#clear-filters").hidden = total === 0 && state.date === "all";
 }
 
 function syncFilterInputs() {
@@ -742,7 +795,7 @@ function renderActiveFilters() {
   for (const [name, group] of Object.entries(state.filters)) {
     for (const value of group) chips.push({ name, value });
   }
-  list.hidden = chips.length === 0 && state.date === "all";
+  list.hidden = chips.length === 0;
   for (const chip of chips) {
     list.append(el("li", {},
       el("span", {
@@ -760,19 +813,6 @@ function renderActiveFilters() {
           renderProgramme();
           updateChrome();
         },
-      }),
-    ));
-  }
-  if (state.date !== "all") {
-    const label = formatIsoDate(state.date, state.language, { weekday: "short", day: "numeric", month: "short" });
-    list.append(el("li", {},
-      el("span", { text: label }),
-      el("button", {
-        type: "button",
-        class: "chip-remove",
-        text: "×",
-        "aria-label": t("removeFilter", { value: label }),
-        onClick: () => selectDate("all"),
       }),
     ));
   }
@@ -795,7 +835,7 @@ function applyTranslations() {
   document.querySelectorAll("[data-lang]").forEach((button) => {
     button.setAttribute("aria-pressed", button.dataset.lang === state.language ? "true" : "false");
   });
-  for (const selector of [".site-header", ".programme-toolbar", ".site-footer", "#status", "#cache-offer", ".filter-bar"]) {
+  for (const selector of [".site-header", ".section-nav", ".programme-toolbar", ".site-footer", "#status", "#cache-offer", ".filter-bar"]) {
     const node = document.querySelector(selector);
     if (!node) continue;
     node.lang = state.language;
